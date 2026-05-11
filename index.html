@@ -510,13 +510,8 @@
 
     <div class="login-step active" id="step1">
       <div class="field">
-        <label>Backend URL</label>
-        <input id="baseUrlInput" value="https://farmes-backend-production.up.railway.app" placeholder="https://…" />
-        <div class="field-err" id="urlErr">Please enter a valid URL starting with https://</div>
-      </div>
-      <div class="field">
         <label>Admin Phone</label>
-        <input id="phoneInput" type="tel" placeholder="+919999999999" />
+        <input id="phoneInput" type="tel" placeholder="+919999999999" autofocus />
         <div class="field-hint">Include country code · e.g. +91XXXXXXXXXX</div>
         <div class="field-err" id="phoneErr">Enter a valid phone with country code</div>
       </div>
@@ -862,24 +857,20 @@ function validateOtp(v)   { return v && /^\d{4,8}$/.test(v.trim()); }
 
 function goBack() {
   clearLoginErr();
-  ["urlErr","phoneErr","otpErr"].forEach(id => showFieldErr(id, false));
-  ["baseUrlInput","phoneInput","otpInput"].forEach(id => markInput(id, false));
+  ["phoneErr","otpErr"].forEach(id => showFieldErr(id, false));
+  ["phoneInput","otpInput"].forEach(id => markInput(id, false));
   qs("step2").classList.remove("active");
   qs("step1").classList.add("active");
 }
 
 async function sendOtp() {
   clearLoginErr();
-  const url   = qs("baseUrlInput").value.trim().replace(/\/$/,"");
   const phone = qs("phoneInput").value.trim();
   let ok = true;
-  if (!validateUrl(url))   { showFieldErr("urlErr",true);   markInput("baseUrlInput",true);  ok=false; }
-  else                     { showFieldErr("urlErr",false);  markInput("baseUrlInput",false); }
-  if (!validatePhone(phone)){ showFieldErr("phoneErr",true); markInput("phoneInput",true);    ok=false; }
-  else                     { showFieldErr("phoneErr",false); markInput("phoneInput",false);  }
+  if (!validatePhone(phone)){ showFieldErr("phoneErr",true); markInput("phoneInput",true); ok=false; }
+  else                      { showFieldErr("phoneErr",false); markInput("phoneInput",false); }
   if (!ok) return;
 
-  BASE_URL    = url;
   ADMIN_PHONE = phone;
   const btn = qs("sendOtpBtn");
   btn.disabled = true; btn.textContent = "Sending…";
@@ -946,10 +937,6 @@ qs("otpInput").addEventListener("keydown",   e => e.key==="Enter" && verifyOtp()
 qs("otpInput").addEventListener("input", function() {
   this.value = this.value.replace(/\D/g,"");
   if (this.value.length) { showFieldErr("otpErr",false); markInput("otpInput",false); }
-});
-qs("baseUrlInput").addEventListener("blur", function() {
-  const ok = validateUrl(this.value.trim());
-  showFieldErr("urlErr",!ok); markInput("baseUrlInput",!ok);
 });
 qs("phoneInput").addEventListener("blur", function() {
   const ok = validatePhone(this.value.trim());
