@@ -1,0 +1,1593 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farmes Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════
+       TOKENS
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg:         #f2f5ef;
+      --surface:    #ffffff;
+      --surface2:   #f8faf6;
+      --border:     #dde5d8;
+      --green:      #1b6b31;
+      --green-dark: #134f24;
+      --green-mid:  #2a8845;
+      --green-lite: #e6f4e9;
+      --green-glow: rgba(27,107,49,0.12);
+      --text:       #18231a;
+      --muted:      #627060;
+      --red:        #c0392b;
+      --red-lite:   #fdf2f1;
+      --amber:      #d97706;
+      --blue:       #1d4ed8;
+      --blue-lite:  #eff6ff;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'Sora', sans-serif;
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-lg: 18px;
+      --r-xl: 24px;
+      --sh:   0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+      --sh-md:0 2px 12px rgba(0,0,0,0.08), 0 6px 28px rgba(0,0,0,0.05);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ═══════════════════════════════════════════
+       LOGIN
+    ═══════════════════════════════════════════ */
+    #loginOverlay {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #e8f0e4 0%, #f2f5ef 60%, #eaf3ec 100%);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+      transition: opacity .35s ease;
+    }
+    #loginOverlay.hide { opacity: 0; pointer-events: none; }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      width: 100%; max-width: 430px;
+      padding: 44px 40px;
+      box-shadow: var(--sh-md), 0 0 0 1px rgba(27,107,49,0.06);
+      position: relative; overflow: hidden;
+    }
+    .login-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--green-dark), #38a169, var(--green-dark));
+    }
+    .login-brand { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+    .login-logo  { font-family: var(--mono); font-size: 28px; font-weight: 600; color: var(--green); }
+    .login-logo span { color: var(--green-mid); }
+    .login-pill  {
+      font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      background: var(--green-lite); color: var(--green); border-radius: 99px; padding: 2px 9px;
+    }
+    .login-sub   { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+
+    .login-step  { display: none; flex-direction: column; gap: 16px; }
+    .login-step.active { display: flex; }
+
+    .field label {
+      display: block; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%; padding: 11px 14px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      font-family: var(--mono); font-size: 14px; color: var(--text);
+      background: var(--surface2); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus        { border-color: var(--green-mid); box-shadow: 0 0 0 3px var(--green-glow); }
+    .field input.invalid      { border-color: var(--red); box-shadow: 0 0 0 3px rgba(192,57,43,.10); }
+    .field input::placeholder { color: #b0bfb0; }
+    .field-hint { font-size: 11px; color: var(--muted); margin-top: 5px; font-family: var(--mono); }
+    .field-err  { font-size: 11px; color: var(--red); margin-top: 5px; font-family: var(--mono); display: none; }
+    .field-err.show { display: block; }
+
+    .login-err {
+      background: var(--red-lite); border: 1px solid #f5c6c1;
+      border-radius: var(--r-sm); padding: 10px 14px;
+      font-size: 13px; color: var(--red); display: none;
+      animation: shake .3s ease;
+    }
+    .login-err.show { display: block; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%,75%{transform:translateX(-5px)} 50%{transform:translateX(5px)} }
+
+    .otp-hint {
+      background: var(--green-lite); border: 1px solid #c3dfc8;
+      border-radius: var(--r-sm); padding: 10px 14px;
+      font-size: 13px; color: var(--green); font-family: var(--mono);
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .btn-full {
+      width: 100%; padding: 13px;
+      border-radius: 10px; border: none; cursor: pointer;
+      font-family: var(--sans); font-weight: 700; font-size: 15px;
+      background: var(--green); color: #fff; letter-spacing: .01em;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 2px 8px rgba(27,107,49,.3);
+    }
+    .btn-full:hover    { background: var(--green-mid); box-shadow: 0 4px 16px rgba(27,107,49,.35); }
+    .btn-full:active   { transform: scale(.98); }
+    .btn-full:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    .back-link {
+      text-align: center; font-size: 13px; color: var(--muted);
+      cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+      transition: color .15s;
+    }
+    .back-link:hover { color: var(--green); }
+
+    /* ═══════════════════════════════════════════
+       SHELL — SIDEBAR + MAIN
+    ═══════════════════════════════════════════ */
+    #shell { display: none; height: 100vh; overflow: hidden; }
+    #shell.show { display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 230px; flex-shrink: 0;
+      background: var(--green);
+      display: flex; flex-direction: column;
+      border-right: 2px solid var(--green-dark);
+      position: relative;
+    }
+    .sidebar::after {
+      content: '';
+      position: absolute; right: -1px; top: 0; bottom: 0; width: 1px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,.15), transparent);
+    }
+
+    .sb-brand {
+      padding: 24px 22px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .sb-logo {
+      font-family: var(--mono); font-size: 20px; font-weight: 600;
+      color: #fff; letter-spacing: -.3px;
+    }
+    .sb-logo span { color: #86efac; }
+    .sb-tagline { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 3px; }
+
+    .sb-nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+
+    .nav-section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+      color: rgba(255,255,255,.4); padding: 10px 12px 6px;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: var(--r-sm);
+      cursor: pointer; color: rgba(255,255,255,.75);
+      font-size: 13px; font-weight: 500;
+      transition: background .15s, color .15s;
+      position: relative; user-select: none;
+    }
+    .nav-item:hover  { background: rgba(255,255,255,.12); color: #fff; }
+    .nav-item.active {
+      background: rgba(255,255,255,.18);
+      color: #fff; font-weight: 700;
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute; left: 0; top: 20%; bottom: 20%;
+      width: 3px; border-radius: 0 3px 3px 0;
+      background: #86efac;
+    }
+    .nav-icon { font-size: 16px; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto;
+      background: rgba(255,255,255,.2); color: #fff;
+      font-size: 11px; font-weight: 700; font-family: var(--mono);
+      border-radius: 99px; padding: 1px 8px; min-width: 24px; text-align: center;
+    }
+    .nav-badge.alert { background: #ef4444; }
+
+    .sb-footer {
+      padding: 16px 14px;
+      border-top: 1px solid rgba(255,255,255,.12);
+    }
+    .sb-user {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,.1); border-radius: var(--r-sm);
+      padding: 10px 12px;
+    }
+    .sb-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .sb-user-name { font-size: 12px; font-weight: 600; color: #fff; }
+    .sb-user-role { font-size: 11px; color: rgba(255,255,255,.5); }
+    .sb-logout {
+      margin-left: auto; background: none; border: none;
+      color: rgba(255,255,255,.5); cursor: pointer; font-size: 17px;
+      transition: color .15s; flex-shrink: 0;
+    }
+    .sb-logout:hover { color: #fff; }
+
+    /* ── Main content area ── */
+    .main {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; min-width: 0;
+    }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 1px 8px rgba(0,0,0,.04);
+    }
+    .topbar-title { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+    .topbar-sub   { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+    .page-wrap {
+      flex: 1; overflow-y: auto; padding: 24px 28px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    /* ═══════════════════════════════════════════
+       PAGES
+    ═══════════════════════════════════════════ */
+    .page { display: none; flex-direction: column; gap: 20px; }
+    .page.active { display: flex; animation: fadeIn .22s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ═══════════════════════════════════════════
+       STAT CARDS
+    ═══════════════════════════════════════════ */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 18px 20px;
+      box-shadow: var(--sh);
+      display: flex; flex-direction: column; gap: 5px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .stat-card:hover { box-shadow: var(--sh-md); transform: translateY(-2px); }
+    .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    .stat-value { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--green); line-height: 1; }
+    .stat-sub   { font-size: 11px; color: var(--muted); }
+
+    /* ═══════════════════════════════════════════
+       CARD
+    ═══════════════════════════════════════════ */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--sh);
+    }
+    .card-header {
+      padding: 15px 22px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; background: var(--surface2);
+    }
+    .card-header h2 { font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+    .card-header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .section-icon { font-size: 18px; }
+
+    .card-sub {
+      padding: 9px 22px; border-bottom: 1px solid var(--border);
+      font-size: 12px; color: var(--muted); background: var(--surface2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .status-bar {
+      padding: 9px 22px; border-top: 1px solid var(--border);
+      font-size: 12px; font-family: var(--mono);
+      display: flex; align-items: center; gap: 8px; background: var(--surface2);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .dot.ok  { background: #22c55e; }
+    .dot.err { background: var(--red); }
+    .dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .status-text     { color: var(--muted); }
+    .status-text.err { color: var(--red); }
+
+    /* ═══════════════════════════════════════════
+       TABLE
+    ═══════════════════════════════════════════ */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--muted);
+      padding: 10px 16px; border-bottom: 2px solid var(--border);
+      white-space: nowrap; background: var(--surface2); text-align: left;
+    }
+    tbody td { padding: 13px 16px; border-bottom: 1px solid #edf2ea; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background .12s; }
+    tbody tr:hover { background: #f7fbf5; }
+    .empty { padding: 56px; text-align: center; color: var(--muted); font-size: 14px; }
+    .empty-icon { font-size: 36px; margin-bottom: 10px; display: block; opacity: .5; }
+
+    /* ═══════════════════════════════════════════
+       BADGES
+    ═══════════════════════════════════════════ */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    }
+    .badge-pending   { background: #fef3c7; color: #92400e; }
+    .badge-confirmed { background: #dcfce7; color: #166534; }
+    .badge-delivered { background: #dbeafe; color: #1e40af; }
+    .badge-cancelled { background: #fee2e2; color: #991b1b; }
+    .badge-paid      { background: #dcfce7; color: #166534; }
+    .badge-pending-p { background: #fef3c7; color: #92400e; }
+
+    /* ═══════════════════════════════════════════
+       PILLS / LABELS
+    ═══════════════════════════════════════════ */
+    .farmer-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--green-lite); color: var(--green);
+      border-radius: 6px; padding: 3px 9px;
+      font-size: 12px; font-weight: 700; margin-bottom: 3px;
+    }
+    .product-name { font-weight: 700; font-size: 14px; }
+    .mono-val     { font-family: var(--mono); font-weight: 600; }
+    .green-val    { font-family: var(--mono); font-weight: 700; color: var(--green); }
+    .muted-val    { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+    .order-user   { font-weight: 600; font-size: 13px; }
+
+    /* ═══════════════════════════════════════════
+       DEMAND BAR
+    ═══════════════════════════════════════════ */
+    .demand-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
+    .demand-bar-bg { height: 6px; border-radius: 99px; background: #e4ede1; overflow: hidden; }
+    .demand-bar-fill { height: 100%; border-radius: 99px; transition: width .5s ease; }
+    .demand-pct { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    /* ═══════════════════════════════════════════
+       PRICE CONTROL
+    ═══════════════════════════════════════════ */
+    .price-row { display: flex; flex-direction: column; gap: 6px; }
+    .price-input-wrap { display: flex; gap: 7px; align-items: center; }
+    .price-row input {
+      width: 100px; padding: 7px 10px;
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      font-family: var(--mono); font-size: 13px; outline: none;
+      background: var(--surface2);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .price-row input:focus   { border-color: var(--green-mid); box-shadow: 0 0 0 3px var(--green-glow); }
+    .price-row input.invalid { border-color: var(--red); box-shadow: 0 0 0 3px rgba(192,57,43,.10); }
+    .price-row input.saving  { border-color: var(--amber); }
+    .price-row input.saved   { border-color: #22c55e; }
+    .price-err { font-size: 11px; color: var(--red); font-family: var(--mono); display: none; }
+    .price-err.show { display: block; }
+    .price-ok  { font-size: 11px; color: #166534; font-family: var(--mono); display: none; align-items: center; gap: 4px; }
+    .price-ok.show { display: flex; }
+
+    /* ═══════════════════════════════════════════
+       PAYOUT PLANNER INPUTS
+    ═══════════════════════════════════════════ */
+    .planner-input {
+      width: 95px; padding: 6px 9px;
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      font-family: var(--mono); font-size: 12px; outline: none;
+      background: var(--surface2);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .planner-input:focus { border-color: var(--green-mid); box-shadow: 0 0 0 3px var(--green-glow); }
+
+    /* ═══════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════ */
+    .btn {
+      padding: 8px 16px; border-radius: var(--r-sm); border: none;
+      cursor: pointer; font-family: var(--sans); font-weight: 600; font-size: 13px;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary  { background: var(--green); color: #fff; }
+    .btn-primary:hover { background: var(--green-mid); box-shadow: 0 2px 8px rgba(27,107,49,.3); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-blue   { background: var(--blue); color: #fff; }
+    .btn-blue:hover { background: #1a44c2; }
+    .btn-ghost  { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { background: var(--surface2); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-xs { padding: 4px 10px; font-size: 11px; border-radius: 6px; }
+
+    .btn-spinner {
+      display: inline-block; width: 11px; height: 11px;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════
+       TOAST
+    ═══════════════════════════════════════════ */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      z-index: 9999; display: flex; flex-direction: column-reverse; gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 16px; border-radius: var(--r-md);
+      font-size: 13px; font-weight: 600;
+      box-shadow: var(--sh-md); pointer-events: all;
+      animation: toastIn .3s cubic-bezier(.34,1.56,.64,1) forwards;
+      max-width: 340px; border: 1px solid transparent;
+    }
+    .toast.out { animation: toastOut .25s ease forwards; }
+    @keyframes toastIn  { from{opacity:0;transform:translateY(20px) scale(.95)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes toastOut { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(10px) scale(.95)} }
+    .toast.success { background: #f0fdf4; color: #14532d; border-color: #86efac; }
+    .toast.error   { background: var(--red-lite); color: var(--red); border-color: #f5c6c1; }
+    .toast.info    { background: var(--blue-lite); color: var(--blue); border-color: #93c5fd; }
+    .toast-icon    { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .toast-msg     { line-height: 1.45; }
+
+    /* ═══════════════════════════════════════════
+       OVERVIEW PAGE — KPI ROW
+    ═══════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+    }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 18px 20px;
+      box-shadow: var(--sh); display: flex; flex-direction: column; gap: 6px;
+      position: relative; overflow: hidden;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .kpi-card:hover { box-shadow: var(--sh-md); transform: translateY(-2px); }
+    .kpi-card::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--green), #38a169);
+    }
+    .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    .kpi-value { font-family: var(--mono); font-size: 28px; font-weight: 600; color: var(--green); line-height: 1; }
+    .kpi-sub   { font-size: 11px; color: var(--muted); }
+
+    /* Farmer stats sub row */
+    .farmer-stats-row { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .page-wrap { padding: 16px; }
+      .topbar { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     TOAST
+════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ════════════════════════════════════════
+     LOGIN
+════════════════════════════════════════ -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-logo">farm<span>es</span></div>
+      <span class="login-pill">Admin</span>
+    </div>
+    <div class="login-sub">Sign in to the operations dashboard</div>
+    <div class="login-err" id="loginErr"></div>
+
+    <div class="login-step active" id="step1">
+      <div class="field">
+        <label>Backend URL</label>
+        <input id="baseUrlInput" value="https://farmes-backend-production.up.railway.app" placeholder="https://…" />
+        <div class="field-err" id="urlErr">Please enter a valid URL starting with https://</div>
+      </div>
+      <div class="field">
+        <label>Admin Phone</label>
+        <input id="phoneInput" type="tel" placeholder="+919999999999" />
+        <div class="field-hint">Include country code · e.g. +91XXXXXXXXXX</div>
+        <div class="field-err" id="phoneErr">Enter a valid phone with country code</div>
+      </div>
+      <button class="btn-full" id="sendOtpBtn" onclick="sendOtp()">Send OTP →</button>
+    </div>
+
+    <div class="login-step" id="step2">
+      <div class="otp-hint">
+        <span>📨</span>
+        <span>OTP sent to <strong id="phoneSent"></strong></span>
+      </div>
+      <div class="field">
+        <label>Enter OTP</label>
+        <input id="otpInput" type="text" maxlength="6" placeholder="6-digit code" inputmode="numeric" />
+        <div class="field-err" id="otpErr">Please enter the 6-digit OTP</div>
+      </div>
+      <button class="btn-full" id="verifyBtn" onclick="verifyOtp()">Sign In →</button>
+      <div class="back-link" onclick="goBack()">← Change phone number</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     APP SHELL
+════════════════════════════════════════ -->
+<div id="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">farm<span>es</span> admin</div>
+      <div class="sb-tagline">Operations Dashboard</div>
+    </div>
+
+    <div class="sb-nav">
+      <div class="nav-section-label">Dashboard</div>
+      <div class="nav-item active" data-page="overview" onclick="navigate('overview')">
+        <span class="nav-icon">📊</span> Overview
+      </div>
+
+      <div class="nav-section-label" style="margin-top:8px">Inventory</div>
+      <div class="nav-item" data-page="products" onclick="navigate('products')">
+        <span class="nav-icon">🌾</span> Products & Pricing
+      </div>
+
+      <div class="nav-section-label" style="margin-top:8px">Orders</div>
+      <div class="nav-item" data-page="orders" onclick="navigate('orders')">
+        <span class="nav-icon">📦</span> All Orders
+        <span class="nav-badge" id="navOrdersBadge">—</span>
+      </div>
+
+      <div class="nav-section-label" style="margin-top:8px">Payouts</div>
+      <div class="nav-item" data-page="payoutPlanner" onclick="navigate('payoutPlanner')">
+        <span class="nav-icon">💸</span> Payout Planner
+      </div>
+      <div class="nav-item" data-page="pendingPayouts" onclick="navigate('pendingPayouts')">
+        <span class="nav-icon">🏦</span> Pending Payouts
+        <span class="nav-badge alert" id="navPendingBadge">—</span>
+      </div>
+
+      <div class="nav-section-label" style="margin-top:8px">System</div>
+      <div class="nav-item" data-page="settings" onclick="navigate('settings')">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="sb-avatar">👤</div>
+        <div>
+          <div class="sb-user-name" id="sbUserName">—</div>
+          <div class="sb-user-role">Admin</div>
+        </div>
+        <button class="sb-logout" title="Sign out" onclick="logout()">⏻</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbarTitle">Overview</div>
+        <div class="topbar-sub" id="topbarSub">Loading…</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="loadAll()">↺ Refresh</button>
+      </div>
+    </div>
+
+    <div class="page-wrap">
+
+      <!-- ── PAGE: OVERVIEW ── -->
+      <div class="page active" id="page-overview">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Total Products</div>
+            <div class="kpi-value" id="statProducts">—</div>
+            <div class="kpi-sub">in supply</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Supply</div>
+            <div class="kpi-value" id="statSupply">—</div>
+            <div class="kpi-sub">kg available</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Ordered</div>
+            <div class="kpi-value" id="statOrdered">—</div>
+            <div class="kpi-sub">kg across orders</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Pending Orders</div>
+            <div class="kpi-value" id="statOrders">—</div>
+            <div class="kpi-sub">awaiting processing</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Revenue</div>
+            <div class="kpi-value" id="statRevenue">—</div>
+            <div class="kpi-sub">₹ from orders</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Pending Payouts</div>
+            <div class="kpi-value" id="statPendingPayouts">—</div>
+            <div class="kpi-sub">farmers awaiting</div>
+          </div>
+        </div>
+
+        <!-- Quick summary cards -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-header">
+              <span class="section-icon">📦</span>
+              <h2>Recent Pending Orders</h2>
+              <div class="card-header-right">
+                <button class="btn btn-ghost btn-xs" onclick="navigate('orders')">View All →</button>
+              </div>
+            </div>
+            <div class="table-wrap"><div id="overviewOrders"><div class="empty">Loading…</div></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="section-icon">🏦</span>
+              <h2>Pending Farmer Payouts</h2>
+              <div class="card-header-right">
+                <button class="btn btn-ghost btn-xs" onclick="navigate('pendingPayouts')">View All →</button>
+              </div>
+            </div>
+            <div class="table-wrap"><div id="overviewPending"><div class="empty">Loading…</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PAGE: PRODUCTS ── -->
+      <div class="page" id="page-products">
+        <div class="card">
+          <div class="card-header">
+            <span class="section-icon">🌾</span>
+            <h2>Product Supply · Demand · Pricing</h2>
+          </div>
+          <div class="card-sub">
+            <span>Live inventory from all farmer contributions</span>
+          </div>
+          <div class="table-wrap">
+            <div id="productsTable"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="status-bar">
+            <div class="dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">Connecting…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PAGE: ORDERS ── -->
+      <div class="page" id="page-orders">
+        <div class="card">
+          <div class="card-header">
+            <span class="section-icon">📦</span>
+            <h2>All User Orders</h2>
+            <div class="card-header-right">
+              <span class="badge badge-confirmed" id="ordersCountBadge" style="font-size:12px">— orders</span>
+            </div>
+          </div>
+          <div class="card-sub">
+            <span>Showing all orders</span>
+          </div>
+          <div class="table-wrap">
+            <div id="ordersTable"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PAGE: PAYOUT PLANNER ── -->
+      <div class="page" id="page-payoutPlanner">
+        <div class="card">
+          <div class="card-header">
+            <span class="section-icon">💸</span>
+            <h2>Farmer Payout Planner</h2>
+          </div>
+          <div class="card-sub">
+            <span>Adjust ordered kg and payout rate per farmer crop, then save or send</span>
+          </div>
+          <div class="table-wrap">
+            <div id="payoutPlannerTable"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PAGE: PENDING PAYOUTS ── -->
+      <div class="page" id="page-pendingPayouts">
+        <div class="card">
+          <div class="card-header">
+            <span class="section-icon">🏦</span>
+            <h2>Pending Farmer Payouts</h2>
+            <div class="card-header-right">
+              <span class="badge badge-pending" id="pendingCountBadge" style="font-size:12px">—</span>
+            </div>
+          </div>
+          <div class="card-sub">
+            <span>Farmers with PENDING payout status — click "Send Payout" to mark all as PAID</span>
+          </div>
+          <div class="table-wrap">
+            <div id="pendingPayoutsTable"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PAGE: SETTINGS ── -->
+      <div class="page" id="page-settings">
+        <div class="card" style="max-width: 600px;">
+          <div class="card-header">
+            <span class="section-icon">⚙️</span>
+            <h2>System Settings</h2>
+            <div class="card-header-right">
+              <button class="btn btn-primary btn-sm" id="saveSettingsBtn" onclick="saveSettings()">Save Settings</button>
+            </div>
+          </div>
+          <div class="card-sub">
+            <span>Configure delivery times and platform fees.</span>
+          </div>
+          <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+            
+            <div class="field">
+              <label>Delivery Price (₹)</label>
+              <input id="setDeliveryPrice" type="number" min="0" placeholder="e.g. 29" />
+              <div class="field-hint">Flat delivery fee charged to the customer.</div>
+            </div>
+
+            <div class="field">
+              <label>Packaging Fee (₹)</label>
+              <input id="setPackagingFee" type="number" min="0" placeholder="e.g. 10" />
+            </div>
+
+            <div class="field">
+              <label>Platform Fee (₹)</label>
+              <input id="setPlatformFee" type="number" min="0" placeholder="e.g. 5" />
+            </div>
+
+            <div class="field">
+              <label>GST Percentage (%)</label>
+              <input id="setGstPercentage" type="number" min="0" max="100" placeholder="e.g. 0" />
+              <div class="field-hint">Leave 0 if not applicable. Applies to item total + packaging + platform fee.</div>
+            </div>
+
+            <div class="field">
+              <label>Scheduled Delivery Time</label>
+              <input id="setDeliveryTime" type="text" placeholder="e.g. Tuesday, before 9 PM" />
+              <div class="field-hint">This text will be displayed to users in the app.</div>
+            </div>
+
+            <div class="field">
+              <label>Order Cutoff Time</label>
+              <input id="setCutoffTime" type="text" placeholder="e.g. today at 9:00 PM" />
+              <div class="field-hint">Cutoff time for orders, displayed in the app.</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-wrap -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+let BASE_URL    = "https://farmes-backend-production.up.railway.app";
+let TOKEN       = "";
+let ADMIN_PHONE = "";
+
+// ════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════
+const qs = id => document.getElementById(id);
+
+function showToast(msg, type = "info", dur = 3500) {
+  const icons = { success: "✅", error: "❌", info: "ℹ️" };
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="toast-icon">${icons[type]}</span><span class="toast-msg">${msg}</span>`;
+  qs("toast-container").appendChild(el);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, dur);
+}
+
+function setStatus(msg, type = "idle") {
+  const dot  = qs("statusDot");
+  const text = qs("statusText");
+  if (!dot || !text) return;
+  dot.className  = "dot" + (type === "ok" ? " ok" : type === "err" ? " err" : type === "loading" ? " loading" : "");
+  text.className = "status-text" + (type === "err" ? " err" : "");
+  text.textContent = msg;
+}
+
+// ════════════════════════════════════════
+//  API
+// ════════════════════════════════════════
+async function api(path, method = "GET", body) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`${res.status} — ${t}`); }
+  return res.json();
+}
+
+function unwrap(res) {
+  return (res && typeof res === "object" && "data" in res) ? res.data : res;
+}
+
+// ════════════════════════════════════════
+//  LOGIN
+// ════════════════════════════════════════
+function showFieldErr(id, show) { qs(id)?.classList.toggle("show", show); }
+function markInput(id, bad)     { qs(id)?.classList.toggle("invalid", bad); }
+function showLoginErr(msg)      { qs("loginErr").textContent = msg; qs("loginErr").classList.add("show"); }
+function clearLoginErr()        { qs("loginErr").classList.remove("show"); }
+
+function validateUrl(v)   { return v && /^https?:\/\/.+/.test(v); }
+function validatePhone(v) { return v && /^\+\d{10,15}$/.test(v.replace(/\s/g,"")); }
+function validateOtp(v)   { return v && /^\d{4,8}$/.test(v.trim()); }
+
+function goBack() {
+  clearLoginErr();
+  ["urlErr","phoneErr","otpErr"].forEach(id => showFieldErr(id, false));
+  ["baseUrlInput","phoneInput","otpInput"].forEach(id => markInput(id, false));
+  qs("step2").classList.remove("active");
+  qs("step1").classList.add("active");
+}
+
+async function sendOtp() {
+  clearLoginErr();
+  const url   = qs("baseUrlInput").value.trim().replace(/\/$/,"");
+  const phone = qs("phoneInput").value.trim();
+  let ok = true;
+  if (!validateUrl(url))   { showFieldErr("urlErr",true);   markInput("baseUrlInput",true);  ok=false; }
+  else                     { showFieldErr("urlErr",false);  markInput("baseUrlInput",false); }
+  if (!validatePhone(phone)){ showFieldErr("phoneErr",true); markInput("phoneInput",true);    ok=false; }
+  else                     { showFieldErr("phoneErr",false); markInput("phoneInput",false);  }
+  if (!ok) return;
+
+  BASE_URL    = url;
+  ADMIN_PHONE = phone;
+  const btn = qs("sendOtpBtn");
+  btn.disabled = true; btn.textContent = "Sending…";
+  try {
+    const res  = await fetch(`${BASE_URL}/auth/send-otp`, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({phone})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
+    qs("phoneSent").textContent = phone;
+    qs("step1").classList.remove("active");
+    qs("step2").classList.add("active");
+    if (data.otp) qs("otpInput").value = data.otp;
+    qs("otpInput").focus();
+  } catch(err) { showLoginErr(err.message || "Could not reach backend."); }
+  finally      { btn.disabled=false; btn.textContent="Send OTP →"; }
+}
+
+async function verifyOtp() {
+  clearLoginErr();
+  const otp = qs("otpInput").value.trim();
+  if (!validateOtp(otp)) { showFieldErr("otpErr",true); markInput("otpInput",true); return; }
+  showFieldErr("otpErr",false); markInput("otpInput",false);
+
+  const btn = qs("verifyBtn");
+  btn.disabled = true; btn.textContent = "Signing in…";
+  try {
+    const res  = await fetch(`${BASE_URL}/auth/verify`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({phone: ADMIN_PHONE, otp})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
+    const { accessToken, user } = data.data ?? data;
+    if (!user.roles?.includes("ADMIN")) throw new Error("Access denied — not an admin.");
+    TOKEN = accessToken;
+
+    const overlay = qs("loginOverlay");
+    overlay.classList.add("hide");
+    setTimeout(() => overlay.style.display = "none", 350);
+    qs("shell").classList.add("show");
+
+    const name = user.name || user.phone;
+    qs("sbUserName").textContent = name;
+    showToast(`Welcome back, ${name}!`, "success");
+    loadAll();
+  } catch(err) { showLoginErr(err.message || "Sign in failed."); markInput("otpInput",true); }
+  finally      { btn.disabled=false; btn.textContent="Sign In →"; }
+}
+
+function logout() {
+  TOKEN = ""; ADMIN_PHONE = "";
+  qs("otpInput").value = "";
+  qs("shell").classList.remove("show");
+  const overlay = qs("loginOverlay");
+  overlay.style.display = "flex";
+  overlay.classList.remove("hide");
+  goBack();
+}
+
+// Keyboard shortcuts in login
+qs("phoneInput").addEventListener("keydown", e => e.key==="Enter" && sendOtp());
+qs("otpInput").addEventListener("keydown",   e => e.key==="Enter" && verifyOtp());
+qs("otpInput").addEventListener("input", function() {
+  this.value = this.value.replace(/\D/g,"");
+  if (this.value.length) { showFieldErr("otpErr",false); markInput("otpInput",false); }
+});
+qs("baseUrlInput").addEventListener("blur", function() {
+  const ok = validateUrl(this.value.trim());
+  showFieldErr("urlErr",!ok); markInput("baseUrlInput",!ok);
+});
+qs("phoneInput").addEventListener("blur", function() {
+  const ok = validatePhone(this.value.trim());
+  showFieldErr("phoneErr",!ok); markInput("phoneInput",!ok);
+});
+
+// ════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════
+const PAGE_META = {
+  overview:       { title: "Overview",              sub: "At-a-glance summary of all operations" },
+  products:       { title: "Products & Pricing",    sub: "Manage inventory, demand and prices" },
+  orders:         { title: "All Orders",            sub: "Pending customer orders" },
+  payoutPlanner:  { title: "Payout Planner",        sub: "Calculate and dispatch farmer payouts" },
+  pendingPayouts: { title: "Pending Payouts",       sub: "Farmers awaiting payment" },
+};
+
+function navigate(page) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  qs(`page-${page}`).classList.add("active");
+  document.querySelector(`[data-page="${page}"]`)?.classList.add("active");
+  const meta = PAGE_META[page] || {};
+  qs("topbarTitle").textContent = meta.title || page;
+  qs("topbarSub").textContent   = meta.sub   || "";
+}
+
+// ════════════════════════════════════════
+//  DATA HELPERS
+// ════════════════════════════════════════
+function buildOrderedMap(orders) {
+  const map = {};
+  (orders||[]).forEach(order => {
+    (order.items||[]).forEach(item => {
+      const pid = item.productId || item.product?.id;
+      if (!pid) return;
+      if (!map[pid]) map[pid] = { totalKg: 0, orderCount: 0 };
+      map[pid].totalKg    += Number(item.quantity||0);
+      map[pid].orderCount += 1;
+    });
+  });
+  return map;
+}
+
+function getPendingOrders(orders) {
+  return (orders||[]).filter(o => (o.status||"").toUpperCase() === "PLACED");
+}
+
+function badgeClass(status) {
+  const s = (status||"").toLowerCase();
+  if (s==="placed") return "badge-pending";
+  if (["locked","harvesting","packed"].includes(s)) return "badge-confirmed";
+  if (["out_for_delivery","delivered"].includes(s)) return "badge-delivered";
+  if (s==="cancelled") return "badge-cancelled";
+  return "badge-pending";
+}
+
+// ════════════════════════════════════════
+//  LOAD ALL
+// ════════════════════════════════════════
+async function loadAll() {
+  setStatus("Fetching data…", "loading");
+  qs("topbarSub").textContent = "Loading…";
+  try {
+    const [pRes, oRes, payRes, setRes] = await Promise.all([
+      api("/orders/admin/product-demand"),
+      api("/orders/admin/all"),
+      api("/payouts/admin"),
+      api("/settings")
+    ]);
+    const products      = unwrap(pRes);
+    const allOrders     = unwrap(oRes);
+    const pendingOrders = getPendingOrders(allOrders);
+    const payouts       = unwrap(payRes);
+    const settings      = unwrap(setRes);
+    const orderedMap    = buildOrderedMap(allOrders);
+
+    const latestPayoutByKey = {};
+    (payouts||[]).forEach(p => {
+      const key = `${p.farmerId}_${p.productId}`;
+      if (!latestPayoutByKey[key] ||
+          new Date(latestPayoutByKey[key].createdAt) < new Date(p.createdAt)) {
+        latestPayoutByKey[key] = p;
+      }
+    });
+
+    // Render all pages
+    renderKPIs(products, pendingOrders, payouts);
+    renderOverviewOrders(pendingOrders.slice(0,5));
+    renderOverviewPending(payouts);
+    renderProducts(products, orderedMap);
+    renderOrders(allOrders);
+    renderPayoutPlanner(products, orderedMap, latestPayoutByKey);
+    renderPendingPayouts(payouts);
+    renderSettings(settings);
+
+    // Nav badges
+    qs("navOrdersBadge").textContent   = pendingOrders.length;
+    const pendingCount = (payouts||[]).filter(p=>(p.status||"").toUpperCase()==="PENDING").length;
+    qs("navPendingBadge").textContent  = pendingCount || "0";
+    qs("ordersCountBadge").textContent = `${allOrders.length} orders`;
+    qs("pendingCountBadge").textContent= `${pendingCount} pending`;
+
+    setStatus(`Updated ${new Date().toLocaleTimeString()} · ${(products||[]).length} products · ${pendingOrders.length} orders`, "ok");
+    qs("topbarSub").textContent = PAGE_META[currentPage()]?.sub || "";
+  } catch(err) {
+    setStatus(err.message || "Failed to load.", "err");
+    showToast("Failed to load: " + err.message, "error", 5000);
+    qs("topbarSub").textContent = "Error loading data";
+  }
+}
+
+function currentPage() {
+  const active = document.querySelector(".page.active");
+  if (!active) return "overview";
+  return active.id.replace("page-","");
+}
+
+// ════════════════════════════════════════
+//  KPIs
+// ════════════════════════════════════════
+function renderKPIs(products, pendingOrders, payouts) {
+  const totalSupply  = (products||[]).reduce((s,p)=>s+Number(p.totalAvailableQuantityKg||0),0);
+  const totalOrdered = pendingOrders.reduce((s,o)=>{
+    return s + (o.items||[]).reduce((ss,i)=>ss+Number(i.quantity||0),0);
+  },0);
+  const totalRevenue = pendingOrders.reduce((s,o)=>s+Number(o.totalAmount||0),0);
+  const pendingPayoutCount = (payouts||[]).filter(p=>(p.status||"").toUpperCase()==="PENDING").length;
+
+  qs("statProducts").textContent      = (products||[]).length;
+  qs("statSupply").textContent        = totalSupply.toFixed(1);
+  qs("statOrdered").textContent       = totalOrdered.toFixed(1);
+  qs("statOrders").textContent        = pendingOrders.length;
+  qs("statRevenue").textContent       = "₹" + totalRevenue.toFixed(0);
+  qs("statPendingPayouts").textContent= pendingPayoutCount;
+}
+
+// ════════════════════════════════════════
+//  OVERVIEW — MINI TABLES
+// ════════════════════════════════════════
+function renderOverviewOrders(orders) {
+  if (!orders?.length) {
+    qs("overviewOrders").innerHTML = `<div class="empty"><span class="empty-icon">📭</span>No pending orders</div>`; return;
+  }
+  qs("overviewOrders").innerHTML = `
+    <table>
+      <thead><tr><th>Customer</th><th>Status</th><th>Total</th></tr></thead>
+      <tbody>
+        ${orders.map(o=>`
+          <tr>
+            <td>
+              <div class="order-user">${o.user?.name||"—"}</div>
+              <div class="muted-val">${o.user?.phone||"—"}</div>
+            </td>
+            <td><span class="badge ${badgeClass(o.status)}">${o.status||"—"}</span></td>
+            <td><span class="green-val">₹${Number(o.totalAmount||0).toFixed(2)}</span></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function renderOverviewPending(payouts) {
+  const pending = (payouts||[]).filter(p=>(p.status||"").toUpperCase()==="PENDING");
+  if (!pending.length) {
+    qs("overviewPending").innerHTML = `<div class="empty"><span class="empty-icon">✅</span>All payouts cleared</div>`; return;
+  }
+  const byFarmer = {};
+  pending.forEach(p => {
+    const key = p.farmerId;
+    if (!byFarmer[key]) byFarmer[key] = { name: p.farmer?.user?.name||p.farmer?.farmName||"Farmer", total: 0 };
+    byFarmer[key].total += Number(p.totalPayout||0);
+  });
+  const rows = Object.values(byFarmer).sort((a,b)=>b.total-a.total).slice(0,5);
+  qs("overviewPending").innerHTML = `
+    <table>
+      <thead><tr><th>Farmer</th><th>Total Pending</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td><span class="farmer-pill">👤 ${r.name}</span></td>
+            <td><span class="green-val">₹${r.total.toFixed(2)}</span></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+// ════════════════════════════════════════
+//  PRODUCTS PAGE
+// ════════════════════════════════════════
+function renderProducts(rows, orderedMap) {
+  if (!rows?.length) {
+    qs("productsTable").innerHTML = `<div class="empty"><span class="empty-icon">🌱</span>No product supply found.</div>`; return;
+  }
+  qs("productsTable").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Available (kg)</th>
+          <th>Ordered (kg)</th>
+          <th>Demand Fill</th>
+          <th>Current Price / kg</th>
+          <th>Pack Sizes</th>
+          <th>Farmer Contributions</th>
+          <th>Update Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => {
+          const avail   = Number(r.totalAvailableQuantityKg||0);
+          const ordered = orderedMap[r.productId]?.totalKg ?? Number(r.totalOrderQuantityKg||0);
+          const pct     = avail > 0 ? Math.min(100,(ordered/avail)*100) : 0;
+          const barColor= pct>90?"#ef4444":pct>60?"#f59e0b":"#22c55e";
+          return `
+          <tr>
+            <td><span class="product-name">${r.productName||"—"}</span></td>
+            <td><span class="green-val">${avail.toFixed(2)}</span></td>
+            <td><span class="green-val">${ordered.toFixed(2)}</span></td>
+            <td>
+              <div class="demand-wrap">
+                <div class="demand-bar-bg">
+                  <div class="demand-bar-fill" style="width:${pct.toFixed(1)}%;background:${barColor}"></div>
+                </div>
+                <div class="demand-pct">${pct.toFixed(1)}% filled</div>
+              </div>
+            </td>
+            <td><span class="green-val">₹ ${Number(r.currentPricePerKg||0).toFixed(2)}</span></td>
+            <td>
+              <div class="pack-sizes-grid" style="display:flex; flex-direction:column; gap:4px;">
+                ${[0.25, 0.5, 1, 2, 5].map(sz => {
+                  const checked = (r.allowedPackSizes || [1.0]).map(Number).includes(sz);
+                  const label = sz < 1 ? (sz * 1000) + 'g' : sz + 'kg';
+                  return `
+                  <label style="display:flex; align-items:center; gap:6px; font-size:11px; cursor:pointer;">
+                    <input type="checkbox" 
+                           ${checked ? 'checked' : ''} 
+                           onchange="savePackSizes('${r.productId}', ${sz}, this.checked, '${(r.productName||r.productId).replace(/'/g,"\\'")}')" />
+                    ${label}
+                  </label>`;
+                }).join("")}
+              </div>
+            </td>
+            <td>
+              ${(r.farmerSupply||[]).map(f=>`
+                <div style="margin-bottom:8px">
+                  <div class="farmer-pill">👤 ${f.farmerName||"Farmer"}</div>
+                  <div class="farmer-stats-row">${f.farmerPhone||"—"}</div>
+                  <div class="farmer-stats-row">
+                    Avail: ${Number(f.availableQtyKg||0).toFixed(2)} kg ·
+                    Harvest: ${Number(f.harvestQtyKg||0).toFixed(2)} kg ·
+                    Land: ${Number(f.landAssignedAcres||0).toFixed(2)} ac
+                  </div>
+                </div>`).join("")}
+            </td>
+            <td>
+              <div class="price-row" id="priceRow_${r.productId}">
+                <div class="price-input-wrap">
+                  <input id="p_${r.productId}" type="number" step="0.01" min="0"
+                    value="${Number(r.currentPricePerKg||0).toFixed(2)}"
+                    oninput="onPriceInput('${r.productId}')"
+                    onblur="validatePriceInput('${r.productId}')" />
+                  <button class="btn btn-primary btn-xs" id="saveBtn_${r.productId}"
+                    onclick="setPrice('${r.productId}','${(r.productName||r.productId).replace(/'/g,"\\'") }')">
+                    Save
+                  </button>
+                </div>
+                <div class="price-err" id="priceErr_${r.productId}">Enter a valid price ≥ 0</div>
+                <div class="price-ok"  id="priceOk_${r.productId}">✔ Saved</div>
+              </div>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
+
+function onPriceInput(pid) {
+  const inp = qs(`p_${pid}`); if (!inp) return;
+  const v = parseFloat(inp.value);
+  inp.classList.toggle("invalid", inp.value===""||isNaN(v)||v<0);
+  if (!(inp.value===""||isNaN(v)||v<0)) qs(`priceErr_${pid}`)?.classList.remove("show");
+  qs(`priceOk_${pid}`)?.classList.remove("show");
+}
+
+function validatePriceInput(pid) {
+  const inp = qs(`p_${pid}`); if (!inp) return false;
+  const v = parseFloat(inp.value);
+  const bad = inp.value===""||isNaN(v)||v<0;
+  inp.classList.toggle("invalid", bad);
+  qs(`priceErr_${pid}`)?.classList.toggle("show", bad);
+  return !bad;
+}
+
+async function setPrice(pid, pname) {
+  if (!validatePriceInput(pid)) return;
+  const val  = parseFloat(qs(`p_${pid}`).value);
+  const btn  = qs(`saveBtn_${pid}`);
+  const inp  = qs(`p_${pid}`);
+  const okEl = qs(`priceOk_${pid}`);
+  btn.disabled=true; btn.innerHTML=`<span class="btn-spinner"></span>`;
+  inp.classList.remove("invalid","saved"); inp.classList.add("saving");
+  okEl?.classList.remove("show");
+  setStatus("Saving price…","loading");
+  try {
+    await api(`/products/${pid}/price`,"PATCH",{pricePerKg:val});
+    inp.classList.remove("saving"); inp.classList.add("saved");
+    okEl?.classList.add("show");
+    setStatus(`Price updated · ${new Date().toLocaleTimeString()}`,"ok");
+    showToast(`Price for <strong>${pname}</strong> → ₹${val.toFixed(2)}/kg`,"success");
+    setTimeout(()=>{ inp.classList.remove("saved"); okEl?.classList.remove("show"); },3000);
+    setTimeout(()=>loadAll(),1200);
+  } catch(err) {
+    inp.classList.remove("saving"); inp.classList.add("invalid");
+    if (qs(`priceErr_${pid}`)) { qs(`priceErr_${pid}`).textContent="Save failed: "+(err.message||"error"); qs(`priceErr_${pid}`).classList.add("show"); }
+    setStatus(err.message||"Failed.","err");
+    showToast("Price update failed: "+err.message,"error",5000);
+  } finally { btn.disabled=false; btn.textContent="Save"; }
+}
+
+// ════════════════════════════════════════
+//  ORDERS PAGE
+// ════════════════════════════════════════
+function renderOrders(rows) {
+  if (!rows?.length) {
+    qs("ordersTable").innerHTML = `<div class="empty"><span class="empty-icon">📭</span>No orders found.</div>`; return;
+  }
+  qs("ordersTable").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Phone</th>
+          <th>Status</th>
+          <th>Items & Qty</th>
+          <th>Total (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(o=>`
+          <tr>
+            <td><span class="muted-val" style="font-size:11px">${o.id}</span></td>
+            <td><div class="order-user">${o.user?.name||"—"}</div></td>
+            <td><div class="muted-val">${o.user?.phone||"—"}</div></td>
+            <td>
+              <select class="planner-input" onchange="updateOrderStatus('${o.id}', this.value)" style="width: auto;">
+                <option value="PLACED" ${o.status==='PLACED'?'selected':''}>Placed</option>
+                <option value="LOCKED" ${o.status==='LOCKED'?'selected':''}>Locked</option>
+                <option value="HARVESTING" ${o.status==='HARVESTING'?'selected':''}>Harvesting</option>
+                <option value="PACKED" ${o.status==='PACKED'?'selected':''}>Packed</option>
+                <option value="OUT_FOR_DELIVERY" ${o.status==='OUT_FOR_DELIVERY'?'selected':''}>Out for Delivery</option>
+                <option value="DELIVERED" ${o.status==='DELIVERED'?'selected':''}>Delivered</option>
+              </select>
+            </td>
+            <td>
+              ${(o.items||[]).map(i=>`
+                <div style="font-size:12px;font-family:var(--mono);color:var(--muted);line-height:1.8">
+                  ${i.product?.name||i.productId}: <strong>${Number(i.quantity||0).toFixed(2)} kg</strong>
+                </div>`).join("")}
+            </td>
+            <td><span class="green-val">₹ ${Number(o.totalAmount||0).toFixed(2)}</span></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function updateOrderStatus(id, status) {
+  setStatus("Updating order status...", "loading");
+  try {
+    await api(`/orders/${id}/status`, "PATCH", { status });
+    showToast("Order status updated successfully", "success");
+    loadAll();
+  } catch(err) {
+    showToast("Failed to update status: " + err.message, "error");
+    loadAll();
+  }
+}
+
+// ════════════════════════════════════════
+//  PAYOUT PLANNER PAGE
+// ════════════════════════════════════════
+function estimateShare(totalOrdered, farmerAvail, totalAvail) {
+  const o=Number(totalOrdered||0), fa=Number(farmerAvail||0), ta=Number(totalAvail||0);
+  if (!Number.isFinite(o)||o<=0||!Number.isFinite(fa)||fa<=0||!Number.isFinite(ta)||ta<=0) return 0;
+  return Math.max(0,(fa/ta)*o);
+}
+
+function renderPayoutPlanner(rows, orderedMap, latestPayoutByKey) {
+  if (!rows?.length) {
+    qs("payoutPlannerTable").innerHTML = `<div class="empty"><span class="empty-icon">💸</span>No data available.</div>`; return;
+  }
+  const plannerRows = [];
+  rows.forEach(r => {
+    const totalOrdered = orderedMap[r.productId]?.totalKg ?? Number(r.totalOrderQuantityKg||0);
+    const totalAvail   = Number(r.totalAvailableQuantityKg||0);
+    (r.farmerSupply||[]).forEach((f,idx) => {
+      plannerRows.push({
+        farmerId: f.farmerId, farmerName: f.farmerName||"Farmer", farmerPhone: f.farmerPhone||"—",
+        productId: f.productId||r.productId, productName: r.productName||"Crop",
+        totalOrdered,
+        suggestedKg: estimateShare(totalOrdered, Number(f.availableQtyKg||0), totalAvail),
+        defaultRate:  Number(r.currentPricePerKg||0),
+        payoutKey:    `${f.farmerId}_${f.productId||r.productId}`,
+        rowKey:       `${f.farmerId}_${f.productId||r.productId}_${idx}`,
+      });
+    });
+  });
+
+  qs("payoutPlannerTable").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Farmer</th>
+          <th>Crop</th>
+          <th>Total Ordered (kg)</th>
+          <th>Farmer's Est. kg</th>
+          <th>Rate (₹/kg)</th>
+          <th>Total Payout (₹)</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${plannerRows.map(r => {
+          const latest  = latestPayoutByKey?.[r.payoutKey];
+          const status  = latest?.status||"—";
+          const kg      = r.suggestedKg.toFixed(2);
+          const rate    = r.defaultRate.toFixed(2);
+          const total   = (r.suggestedKg * r.defaultRate).toFixed(2);
+          return `
+          <tr>
+            <td>
+              <div class="farmer-pill">👤 ${r.farmerName}</div>
+              <div class="muted-val">${r.farmerPhone}</div>
+            </td>
+            <td><span class="product-name">${r.productName}</span></td>
+            <td><span class="mono-val">${Number(r.totalOrdered||0).toFixed(2)}</span></td>
+            <td>
+              <input class="planner-input" id="po_kg_${r.rowKey}" type="number" min="0" step="0.01" value="${kg}"
+                oninput="recalcPayout('${r.rowKey}')" />
+            </td>
+            <td>
+              <input class="planner-input" id="po_rate_${r.rowKey}" type="number" min="0" step="0.01" value="${rate}"
+                oninput="recalcPayout('${r.rowKey}')" />
+            </td>
+            <td><span class="green-val" id="po_total_${r.rowKey}">${total}</span></td>
+            <td>
+              <span class="badge ${status==='PAID'?'badge-paid':'badge-pending-p'}"
+                id="po_status_${r.rowKey}">${status}</span>
+            </td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:14px">
+              <button class="btn btn-primary btn-xs"
+                onclick="savePayout('${r.farmerId}','${r.productId}','${r.rowKey}')">
+                Save
+              </button>
+              <button class="btn btn-blue btn-xs"
+                onclick="sendPayout('${r.farmerId}','${r.productId}','${r.rowKey}','${latest?.id||""}')">
+                Send
+              </button>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+}
+
+function recalcPayout(rowKey) {
+  const kg   = parseFloat(qs(`po_kg_${rowKey}`)?.value||"0");
+  const rate = parseFloat(qs(`po_rate_${rowKey}`)?.value||"0");
+  const el   = qs(`po_total_${rowKey}`);
+  if (el) el.textContent = ((isFinite(kg)?kg:0)*(isFinite(rate)?rate:0)).toFixed(2);
+}
+
+async function savePayout(farmerId, productId, rowKey) {
+  const kg   = parseFloat(qs(`po_kg_${rowKey}`)?.value||"0");
+  const rate = parseFloat(qs(`po_rate_${rowKey}`)?.value||"0");
+  if (!isFinite(kg)||kg<0||!isFinite(rate)||rate<0) { showToast("Enter valid non-negative values.","error"); return; }
+  try {
+    const res = await api("/payouts/admin","POST",{
+      farmerId, productId, orderedKg:+kg.toFixed(2), payoutPricePerKg:+rate.toFixed(2)
+    });
+    const el = qs(`po_status_${rowKey}`);
+    const st = res?.data?.status||res?.status||"PENDING";
+    if (el) { el.textContent=st; el.className=`badge ${st==="PAID"?"badge-paid":"badge-pending-p"}`; }
+    showToast("Payout saved.","success");
+  } catch(err) { showToast("Save failed: "+(err.message||"error"),"error"); }
+}
+
+async function sendPayout(farmerId, productId, rowKey, existingId) {
+  const kg   = parseFloat(qs(`po_kg_${rowKey}`)?.value||"0");
+  const rate = parseFloat(qs(`po_rate_${rowKey}`)?.value||"0");
+  if (!isFinite(kg)||kg<0||!isFinite(rate)||rate<0) { showToast("Enter valid non-negative values.","error"); return; }
+  try {
+    if (existingId) {
+      await api(`/payouts/admin/${existingId}/status`,"PATCH",{status:"PAID"});
+    } else {
+      await api("/payouts/admin","POST",{
+        farmerId, productId, orderedKg:+kg.toFixed(2), payoutPricePerKg:+rate.toFixed(2), status:"PAID"
+      });
+    }
+    const el = qs(`po_status_${rowKey}`);
+    if (el) { el.textContent="PAID"; el.className="badge badge-paid"; }
+    showToast("Payout marked as PAID.","success");
+    setTimeout(()=>loadAll(),400);
+  } catch(err) { showToast("Send failed: "+(err.message||"error"),"error"); }
+}
+
+// ════════════════════════════════════════
+//  PENDING PAYOUTS PAGE
+// ════════════════════════════════════════
+function renderPendingPayouts(payouts) {
+  const pending = (payouts||[]).filter(p=>(p.status||"").toUpperCase()==="PENDING");
+  if (!pending.length) {
+    qs("pendingPayoutsTable").innerHTML = `<div class="empty"><span class="empty-icon">✅</span>No pending payouts. All cleared!</div>`; return;
+  }
+
+  const byFarmer = new Map();
+  pending.forEach(p => {
+    const key  = p.farmerId;
+    const name = p.farmer?.user?.name||p.farmer?.farmName||"Farmer";
+    const phone= p.farmer?.user?.phone||"—";
+    const row  = byFarmer.get(key) || { farmerId:key, name, phone, payouts:[], totalPayout:0, totalKg:0 };
+    row.payouts.push(p);
+    row.totalPayout += Number(p.totalPayout||0);
+    row.totalKg     += Number(p.orderedKg||0);
+    byFarmer.set(key, row);
+  });
+
+  const rows = Array.from(byFarmer.values()).sort((a,b)=>b.totalPayout-a.totalPayout);
+
+  qs("pendingPayoutsTable").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Farmer</th>
+          <th>Phone</th>
+          <th>Pending Entries</th>
+          <th>Total Ordered (kg)</th>
+          <th>Total Pending (₹)</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td><div class="farmer-pill">👤 ${r.name}</div></td>
+            <td><div class="muted-val">${r.phone}</div></td>
+            <td><span class="mono-val">${r.payouts.length}</span></td>
+            <td><span class="mono-val">${r.totalKg.toFixed(2)} kg</span></td>
+            <td><span class="green-val">₹ ${r.totalPayout.toFixed(2)}</span></td>
+            <td>
+              <button class="btn btn-primary btn-sm"
+                onclick="sendFarmerPayout('${r.farmerId}','${r.name}')">
+                Send Payout
+              </button>
+            </td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function sendFarmerPayout(farmerId, farmerName) {
+  try {
+    const payoutsRes = await api("/payouts/admin");
+    const payouts    = unwrap(payoutsRes)||[];
+    const pending    = payouts.filter(p=>p.farmerId===farmerId&&(p.status||"").toUpperCase()==="PENDING");
+    if (!pending.length) { showToast("No pending payouts for this farmer.","info"); return; }
+    await Promise.all(pending.map(p=>api(`/payouts/admin/${p.id}/status`,"PATCH",{status:"PAID"})));
+    showToast(`Payout sent to ${farmerName} — ${pending.length} entries marked PAID.`,"success");
+    setTimeout(()=>loadAll(),400);
+  } catch(err) { showToast("Failed: "+(err.message||"error"),"error"); }
+}
+
+// ════════════════════════════════════════
+//  SETTINGS PAGE
+// ════════════════════════════════════════
+function renderSettings(settings) {
+  if (!settings) return;
+  qs("setDeliveryPrice").value = Number(settings.deliveryPrice || 0);
+  qs("setPackagingFee").value = Number(settings.packagingFee || 0);
+  qs("setPlatformFee").value = Number(settings.platformFee || 0);
+  qs("setGstPercentage").value = Number(settings.gstPercentage || 0);
+  qs("setDeliveryTime").value = settings.scheduledDeliveryTime || "";
+  qs("setCutoffTime").value = settings.orderCutoffTime || "";
+}
+
+async function saveSettings() {
+  const btn = qs("saveSettingsBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+  try {
+    const payload = {
+      deliveryPrice: Number(qs("setDeliveryPrice").value) || 0,
+      packagingFee: Number(qs("setPackagingFee").value) || 0,
+      platformFee: Number(qs("setPlatformFee").value) || 0,
+      gstPercentage: Number(qs("setGstPercentage").value) || 0,
+      scheduledDeliveryTime: qs("setDeliveryTime").value.trim(),
+      orderCutoffTime: qs("setCutoffTime").value.trim()
+    };
+    await api("/settings", "PUT", payload);
+    showToast("Settings saved successfully.", "success");
+    loadAll();
+  } catch (err) {
+    showToast("Failed to save settings: " + err.message, "error");
+    } finally {
+    btn.disabled = false;
+    btn.textContent = "Save Settings";
+  }
+}
+
+async function savePackSizes(pid, size, checked, pname) {
+  setStatus("Updating pack sizes…", "loading");
+  try {
+    // We need to get current sizes first or just manage them in state. 
+    // Since this is vanilla, we'll fetch products again or find in DOM.
+    // Simpler: fetch the specific product from the API to get current allowedPackSizes
+    const pRes = await api(`/products/${pid}`);
+    const product = unwrap(pRes);
+    let sizes = (product.allowedPackSizes || [1.0]).map(Number);
+    
+    if (checked) {
+      if (!sizes.includes(size)) sizes.push(size);
+    } else {
+      sizes = sizes.filter(s => s !== size);
+    }
+    
+    if (sizes.length === 0) sizes = [1.0]; // Default to 1kg if none selected
+    
+    await api(`/products/${pid}/pack-sizes`, "PATCH", { allowedPackSizes: sizes });
+    setStatus(`Pack sizes updated · ${new Date().toLocaleTimeString()}`, "ok");
+    showToast(`Pack sizes for <strong>${pname}</strong> updated`, "success");
+    // Reload to keep UI in sync
+    setTimeout(() => loadAll(), 800);
+  } catch (err) {
+    setStatus(err.message || "Failed to update pack sizes.", "err");
+    showToast("Update failed: " + err.message, "error");
+  }
+}
+</script>
+</body>
+</html>
