@@ -81,8 +81,7 @@
     }
     .login-sub   { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
 
-    .login-step  { display: none; flex-direction: column; gap: 16px; }
-    .login-step.active { display: flex; }
+    .login-form { display: flex; flex-direction: column; gap: 20px; }
 
     .field label {
       display: block; font-size: 11px; font-weight: 700;
@@ -104,19 +103,13 @@
 
     .login-err {
       background: var(--red-lite); border: 1px solid #f5c6c1;
-      border-radius: var(--r-sm); padding: 10px 14px;
+      border-radius: var(--r-sm); padding: 12px 14px;
       font-size: 13px; color: var(--red); display: none;
-      animation: shake .3s ease;
+      animation: shake .3s ease; margin-bottom: 20px;
+      line-height: 1.4;
     }
     .login-err.show { display: block; }
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%,75%{transform:translateX(-5px)} 50%{transform:translateX(5px)} }
-
-    .otp-hint {
-      background: var(--green-lite); border: 1px solid #c3dfc8;
-      border-radius: var(--r-sm); padding: 10px 14px;
-      font-size: 13px; color: var(--green); font-family: var(--mono);
-      display: flex; align-items: center; gap: 8px;
-    }
 
     .btn-full {
       width: 100%; padding: 13px;
@@ -129,13 +122,6 @@
     .btn-full:hover    { background: var(--green-mid); box-shadow: 0 4px 16px rgba(27,107,49,.35); }
     .btn-full:active   { transform: scale(.98); }
     .btn-full:disabled { opacity: .6; cursor: not-allowed; transform: none; }
-
-    .back-link {
-      text-align: center; font-size: 13px; color: var(--muted);
-      cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
-      transition: color .15s;
-    }
-    .back-link:hover { color: var(--green); }
 
     /* ═══════════════════════════════════════════
        SHELL — SIDEBAR + MAIN
@@ -505,31 +491,22 @@
       <div class="login-logo">farm<span>es</span></div>
       <span class="login-pill">Admin</span>
     </div>
-    <div class="login-sub">Sign in to the operations dashboard</div>
+    <div class="login-sub">Sign in with your admin credentials</div>
     <div class="login-err" id="loginErr"></div>
 
-    <div class="login-step active" id="step1">
+    <div class="login-form">
       <div class="field">
         <label>Admin Phone</label>
         <input id="phoneInput" type="tel" placeholder="+919999999999" autofocus />
         <div class="field-hint">Include country code · e.g. +91XXXXXXXXXX</div>
         <div class="field-err" id="phoneErr">Enter a valid phone with country code</div>
       </div>
-      <button class="btn-full" id="sendOtpBtn" onclick="sendOtp()">Send OTP →</button>
-    </div>
-
-    <div class="login-step" id="step2">
-      <div class="otp-hint">
-        <span>📨</span>
-        <span>OTP sent to <strong id="phoneSent"></strong></span>
-      </div>
       <div class="field">
-        <label>Enter OTP</label>
-        <input id="otpInput" type="text" maxlength="6" placeholder="6-digit code" inputmode="numeric" />
-        <div class="field-err" id="otpErr">Please enter the 6-digit OTP</div>
+        <label>Password</label>
+        <input id="passwordInput" type="password" placeholder="••••••••" />
+        <div class="field-err" id="passwordErr">Password is required</div>
       </div>
-      <button class="btn-full" id="verifyBtn" onclick="verifyOtp()">Sign In →</button>
-      <div class="back-link" onclick="goBack()">← Change phone number</div>
+      <button class="btn-full" id="loginBtn" onclick="login()">Sign In →</button>
     </div>
   </div>
 </div>
@@ -572,8 +549,12 @@
         <span class="nav-badge alert" id="navPendingBadge">—</span>
       </div>
 
+      <div class="nav-section-label" style="margin-top:8px">System</div>
       <div class="nav-item" data-page="users" onclick="navigate('users')">
         <span class="nav-icon">👥</span> User Management
+      </div>
+      <div class="nav-item" data-page="settings" onclick="navigate('settings')">
+        <span class="nav-icon">⚙️</span> Settings
       </div>
     </div>
 
@@ -737,6 +718,22 @@
         </div>
       </div>
 
+      <!-- ── PAGE: USERS ── -->
+      <div class="page" id="page-users">
+        <div class="card">
+          <div class="card-header">
+            <span class="section-icon">👥</span>
+            <h2>User Management</h2>
+          </div>
+          <div class="card-sub">
+            <span>Manage customer accounts and reset passwords</span>
+          </div>
+          <div class="table-wrap">
+            <div id="usersTable"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── PAGE: SETTINGS ── -->
       <div class="page" id="page-settings">
         <div class="card" style="max-width: 600px;">
@@ -790,22 +787,6 @@
         </div>
       </div>
 
-      <!-- ── PAGE: USERS ── -->
-      <div class="page" id="page-users">
-        <div class="card">
-          <div class="card-header">
-            <span class="section-icon">👥</span>
-            <h2>User Management</h2>
-          </div>
-          <div class="card-sub">
-            <span>Manage customer accounts and reset passwords</span>
-          </div>
-          <div class="table-wrap">
-            <div id="usersTable"><div class="empty">Loading…</div></div>
-          </div>
-        </div>
-      </div>
-
     </div><!-- /page-wrap -->
   </div><!-- /main -->
 </div><!-- /shell -->
@@ -816,7 +797,6 @@
 // ════════════════════════════════════════
 let BASE_URL    = "https://farmes-backend-production.up.railway.app";
 let TOKEN       = "";
-let ADMIN_PHONE = "";
 
 // ════════════════════════════════════════
 //  HELPERS
@@ -866,61 +846,35 @@ function markInput(id, bad)     { qs(id)?.classList.toggle("invalid", bad); }
 function showLoginErr(msg)      { qs("loginErr").textContent = msg; qs("loginErr").classList.add("show"); }
 function clearLoginErr()        { qs("loginErr").classList.remove("show"); }
 
-function validateUrl(v)   { return v && /^https?:\/\/.+/.test(v); }
 function validatePhone(v) { return v && /^\+\d{10,15}$/.test(v.replace(/\s/g,"")); }
-function validateOtp(v)   { return v && /^\d{4,8}$/.test(v.trim()); }
 
-function goBack() {
-  clearLoginErr();
-  ["phoneErr","otpErr"].forEach(id => showFieldErr(id, false));
-  ["phoneInput","otpInput"].forEach(id => markInput(id, false));
-  qs("step2").classList.remove("active");
-  qs("step1").classList.add("active");
-}
-
-async function sendOtp() {
+async function login() {
   clearLoginErr();
   const phone = qs("phoneInput").value.trim();
+  const password = qs("passwordInput").value;
+  
   let ok = true;
   if (!validatePhone(phone)){ showFieldErr("phoneErr",true); markInput("phoneInput",true); ok=false; }
   else                      { showFieldErr("phoneErr",false); markInput("phoneInput",false); }
+  
+  if (!password) { showFieldErr("passwordErr",true); markInput("passwordInput",true); ok=false; }
+  else           { showFieldErr("passwordErr",false); markInput("passwordInput",false); }
+  
   if (!ok) return;
 
-  ADMIN_PHONE = phone;
-  const btn = qs("sendOtpBtn");
-  btn.disabled = true; btn.textContent = "Sending…";
-  try {
-    const res  = await fetch(`${BASE_URL}/auth/send-otp`, {
-      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({phone})
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
-    qs("phoneSent").textContent = phone;
-    qs("step1").classList.remove("active");
-    qs("step2").classList.add("active");
-    if (data.otp) qs("otpInput").value = data.otp;
-    qs("otpInput").focus();
-  } catch(err) { showLoginErr(err.message || "Could not reach backend."); }
-  finally      { btn.disabled=false; btn.textContent="Send OTP →"; }
-}
-
-async function verifyOtp() {
-  clearLoginErr();
-  const otp = qs("otpInput").value.trim();
-  if (!validateOtp(otp)) { showFieldErr("otpErr",true); markInput("otpInput",true); return; }
-  showFieldErr("otpErr",false); markInput("otpInput",false);
-
-  const btn = qs("verifyBtn");
+  const btn = qs("loginBtn");
   btn.disabled = true; btn.textContent = "Signing in…";
   try {
-    const res  = await fetch(`${BASE_URL}/auth/verify`, {
+    const res  = await fetch(`${BASE_URL}/auth/login`, {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({phone: ADMIN_PHONE, otp})
+      body: JSON.stringify({phone, password})
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
+    
     const { accessToken, user } = data.data ?? data;
     if (!user.roles?.includes("ADMIN")) throw new Error("Access denied — not an admin.");
+    
     TOKEN = accessToken;
 
     const overlay = qs("loginOverlay");
@@ -932,31 +886,26 @@ async function verifyOtp() {
     qs("sbUserName").textContent = name;
     showToast(`Welcome back, ${name}!`, "success");
     loadAll();
-  } catch(err) { showLoginErr(err.message || "Sign in failed."); markInput("otpInput",true); }
-  finally      { btn.disabled=false; btn.textContent="Sign In →"; }
+  } catch(err) { 
+    showLoginErr(err.message || "Login failed. Check your credentials."); 
+    markInput("phoneInput",true);
+    markInput("passwordInput",true);
+  }
+  finally { btn.disabled=false; btn.textContent="Sign In →"; }
 }
 
 function logout() {
-  TOKEN = ""; ADMIN_PHONE = "";
-  qs("otpInput").value = "";
+  TOKEN = "";
+  qs("passwordInput").value = "";
   qs("shell").classList.remove("show");
   const overlay = qs("loginOverlay");
   overlay.style.display = "flex";
   overlay.classList.remove("hide");
-  goBack();
 }
 
-// Keyboard shortcuts in login
-qs("phoneInput").addEventListener("keydown", e => e.key==="Enter" && sendOtp());
-qs("otpInput").addEventListener("keydown",   e => e.key==="Enter" && verifyOtp());
-qs("otpInput").addEventListener("input", function() {
-  this.value = this.value.replace(/\D/g,"");
-  if (this.value.length) { showFieldErr("otpErr",false); markInput("otpInput",false); }
-});
-qs("phoneInput").addEventListener("blur", function() {
-  const ok = validatePhone(this.value.trim());
-  showFieldErr("phoneErr",!ok); markInput("phoneInput",!ok);
-});
+// Keyboard shortcuts
+qs("phoneInput").addEventListener("keydown", e => e.key==="Enter" && login());
+qs("passwordInput").addEventListener("keydown", e => e.key==="Enter" && login());
 
 // ════════════════════════════════════════
 //  NAVIGATION
@@ -1389,8 +1338,8 @@ function renderPayoutPlanner(rows, orderedMap, latestPayoutByKey) {
           return `
           <tr>
             <td>
-              <div class="farmer-pill">👤 ${r.farmerName}</div>
-              <div class="muted-val">${r.farmerPhone}</div>
+              <div class="farmer-pill">👤 ${r.name}</div>
+              <div class="muted-val">${r.phone}</div>
             </td>
             <td><span class="product-name">${r.productName}</span></td>
             <td><span class="mono-val">${Number(r.totalOrdered||0).toFixed(2)}</span></td>
@@ -1531,72 +1480,6 @@ async function sendFarmerPayout(farmerId, farmerName) {
 }
 
 // ════════════════════════════════════════
-//  SETTINGS PAGE
-// ════════════════════════════════════════
-function renderSettings(settings) {
-  if (!settings) return;
-  qs("setDeliveryPrice").value = Number(settings.deliveryPrice || 0);
-  qs("setPackagingFee").value = Number(settings.packagingFee || 0);
-  qs("setPlatformFee").value = Number(settings.platformFee || 0);
-  qs("setGstPercentage").value = Number(settings.gstPercentage || 0);
-  qs("setDeliveryTime").value = settings.scheduledDeliveryTime || "";
-  qs("setCutoffTime").value = settings.orderCutoffTime || "";
-}
-
-async function saveSettings() {
-  const btn = qs("saveSettingsBtn");
-  btn.disabled = true;
-  btn.textContent = "Saving...";
-  try {
-    const payload = {
-      deliveryPrice: Number(qs("setDeliveryPrice").value) || 0,
-      packagingFee: Number(qs("setPackagingFee").value) || 0,
-      platformFee: Number(qs("setPlatformFee").value) || 0,
-      gstPercentage: Number(qs("setGstPercentage").value) || 0,
-      scheduledDeliveryTime: qs("setDeliveryTime").value.trim(),
-      orderCutoffTime: qs("setCutoffTime").value.trim()
-    };
-    await api("/settings", "PUT", payload);
-    showToast("Settings saved successfully.", "success");
-    loadAll();
-  } catch (err) {
-    showToast("Failed to save settings: " + err.message, "error");
-    } finally {
-    btn.disabled = false;
-    btn.textContent = "Save Settings";
-  }
-}
-
-async function savePackSizes(pid, size, checked, pname) {
-  setStatus("Updating pack sizes…", "loading");
-  try {
-    // We need to get current sizes first or just manage them in state. 
-    // Since this is vanilla, we'll fetch products again or find in DOM.
-    // Simpler: fetch the specific product from the API to get current allowedPackSizes
-    const pRes = await api(`/products/${pid}`);
-    const product = unwrap(pRes);
-    let sizes = (product.allowedPackSizes || [1.0]).map(Number);
-    
-    if (checked) {
-      if (!sizes.includes(size)) sizes.push(size);
-    } else {
-      sizes = sizes.filter(s => s !== size);
-    }
-    
-    if (sizes.length === 0) sizes = [1.0]; // Default to 1kg if none selected
-    
-    await api(`/products/${pid}/pack-sizes`, "PATCH", { allowedPackSizes: sizes });
-    setStatus(`Pack sizes updated · ${new Date().toLocaleTimeString()}`, "ok");
-    showToast(`Pack sizes for <strong>${pname}</strong> updated`, "success");
-    // Reload to keep UI in sync
-    setTimeout(() => loadAll(), 800);
-  } catch (err) {
-    setStatus(err.message || "Failed to update pack sizes.", "err");
-    showToast("Update failed: " + err.message, "error");
-  }
-}
-
-// ════════════════════════════════════════
 //  USERS PAGE
 // ════════════════════════════════════════
 function renderUsers(users) {
@@ -1652,6 +1535,68 @@ async function adminUpdatePassword(userId, userName) {
   } catch (err) {
     showToast("Update failed: " + err.message, "error");
     setStatus(err.message, "err");
+  }
+}
+
+// ════════════════════════════════════════
+//  SETTINGS PAGE
+// ════════════════════════════════════════
+function renderSettings(settings) {
+  if (!settings) return;
+  qs("setDeliveryPrice").value = Number(settings.deliveryPrice || 0);
+  qs("setPackagingFee").value = Number(settings.packagingFee || 0);
+  qs("setPlatformFee").value = Number(settings.platformFee || 0);
+  qs("setGstPercentage").value = Number(settings.gstPercentage || 0);
+  qs("setDeliveryTime").value = settings.scheduledDeliveryTime || "";
+  qs("setCutoffTime").value = settings.orderCutoffTime || "";
+}
+
+async function saveSettings() {
+  const btn = qs("saveSettingsBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+  try {
+    const payload = {
+      deliveryPrice: Number(qs("setDeliveryPrice").value) || 0,
+      packagingFee: Number(qs("setPackagingFee").value) || 0,
+      platformFee: Number(qs("setPlatformFee").value) || 0,
+      gstPercentage: Number(qs("setGstPercentage").value) || 0,
+      scheduledDeliveryTime: qs("setDeliveryTime").value.trim(),
+      orderCutoffTime: qs("setCutoffTime").value.trim()
+    };
+    await api("/settings", "PUT", payload);
+    showToast("Settings saved successfully.", "success");
+    loadAll();
+  } catch (err) {
+    showToast("Failed to save settings: " + err.message, "error");
+    } finally {
+    btn.disabled = false;
+    btn.textContent = "Save Settings";
+  }
+}
+
+async function savePackSizes(pid, size, checked, pname) {
+  setStatus("Updating pack sizes…", "loading");
+  try {
+    const pRes = await api(`/products/${pid}`);
+    const product = unwrap(pRes);
+    let sizes = (product.allowedPackSizes || [1.0]).map(Number);
+    
+    if (checked) {
+      if (!sizes.includes(size)) sizes.push(size);
+    } else {
+      sizes = sizes.filter(s => s !== size);
+    }
+    
+    if (sizes.length === 0) sizes = [1.0];
+    
+    await api(`/products/${pid}/pack-sizes`, "PATCH", { allowedPackSizes: sizes });
+    setStatus(`Pack sizes updated · ${new Date().toLocaleTimeString()}`, "ok");
+    showToast(`Pack sizes for <strong>${pname}</strong> updated`, "success");
+    setTimeout(() => loadAll(), 800);
+  } catch (err) {
+    setStatus(err.message || "Failed to update pack sizes.", "err");
+    showToast("Update failed: " + err.message, "error");
   }
 }
 </script>
