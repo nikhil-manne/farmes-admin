@@ -572,9 +572,8 @@
         <span class="nav-badge alert" id="navPendingBadge">—</span>
       </div>
 
-      <div class="nav-section-label" style="margin-top:8px">System</div>
-      <div class="nav-item" data-page="settings" onclick="navigate('settings')">
-        <span class="nav-icon">⚙️</span> Settings
+      <div class="nav-item" data-page="users" onclick="navigate('users')">
+        <span class="nav-icon">👥</span> User Management
       </div>
     </div>
 
@@ -791,6 +790,22 @@
         </div>
       </div>
 
+      <!-- ── PAGE: USERS ── -->
+      <div class="page" id="page-users">
+        <div class="card">
+          <div class="card-header">
+            <span class="section-icon">👥</span>
+            <h2>User Management</h2>
+          </div>
+          <div class="card-sub">
+            <span>Manage customer accounts and reset passwords</span>
+          </div>
+          <div class="table-wrap">
+            <div id="usersTable"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /page-wrap -->
   </div><!-- /main -->
 </div><!-- /shell -->
@@ -952,6 +967,8 @@ const PAGE_META = {
   orders:         { title: "All Orders",            sub: "Pending customer orders" },
   payoutPlanner:  { title: "Payout Planner",        sub: "Calculate and dispatch farmer payouts" },
   pendingPayouts: { title: "Pending Payouts",       sub: "Farmers awaiting payment" },
+  users:          { title: "User Management",       sub: "Manage customer accounts and reset passwords" },
+  settings:       { title: "System Settings",       sub: "Configure delivery times and platform fees" },
 };
 
 function navigate(page) {
@@ -1001,17 +1018,19 @@ async function loadAll() {
   setStatus("Fetching data…", "loading");
   qs("topbarSub").textContent = "Loading…";
   try {
-    const [pRes, oRes, payRes, setRes] = await Promise.all([
+    const [pRes, oRes, payRes, setRes, uRes] = await Promise.all([
       api("/orders/admin/product-demand"),
       api("/orders/admin/all"),
       api("/payouts/admin"),
-      api("/settings")
+      api("/settings"),
+      api("/users")
     ]);
     const products      = unwrap(pRes);
     const allOrders     = unwrap(oRes);
     const pendingOrders = getPendingOrders(allOrders);
     const payouts       = unwrap(payRes);
     const settings      = unwrap(setRes);
+    const users         = unwrap(uRes);
     const orderedMap    = buildOrderedMap(allOrders);
 
     const latestPayoutByKey = {};
@@ -1032,6 +1051,7 @@ async function loadAll() {
     renderPayoutPlanner(products, orderedMap, latestPayoutByKey);
     renderPendingPayouts(payouts);
     renderSettings(settings);
+    renderUsers(users);
 
     // Nav badges
     qs("navOrdersBadge").textContent   = pendingOrders.length;
@@ -1573,6 +1593,65 @@ async function savePackSizes(pid, size, checked, pname) {
   } catch (err) {
     setStatus(err.message || "Failed to update pack sizes.", "err");
     showToast("Update failed: " + err.message, "error");
+  }
+}
+
+// ════════════════════════════════════════
+//  USERS PAGE
+// ════════════════════════════════════════
+function renderUsers(users) {
+  if (!users?.length) {
+    qs("usersTable").innerHTML = `<div class="empty"><span class="empty-icon">👥</span>No users found.</div>`; return;
+  }
+  qs("usersTable").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Phone</th>
+          <th>Roles</th>
+          <th>Joined</th>
+          <th>Reset Password</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map(u => `
+          <tr>
+            <td><div class="order-user">${u.name||"—"}</div></td>
+            <td><div class="muted-val">${u.phone||"—"}</div></td>
+            <td>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                ${(u.roles||[]).map(r=>`<span class="badge ${r==='ADMIN'?'badge-cancelled':r==='FARMER'?'badge-confirmed':'badge-delivered'}">${r}</span>`).join("")}
+              </div>
+            </td>
+            <td><div class="muted-val">${new Date(u.createdAt).toLocaleDateString()}</div></td>
+            <td>
+              <div class="price-input-wrap">
+                <input id="u_pass_${u.id}" type="text" placeholder="New password" class="planner-input" style="width:140px" />
+                <button class="btn btn-primary btn-xs" onclick="adminUpdatePassword('${u.id}', '${(u.name||u.phone).replace(/'/g,"\\'")}')">Reset</button>
+              </div>
+            </td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function adminUpdatePassword(userId, userName) {
+  const inp = qs(`u_pass_${userId}`);
+  const pass = inp.value.trim();
+  if (!pass || pass.length < 4) { showToast("Password must be at least 4 characters.", "error"); return; }
+  
+  if (!confirm(`Are you sure you want to change the password for ${userName}?`)) return;
+
+  setStatus("Updating password...", "loading");
+  try {
+    await api(`/users/${userId}/password`, "PATCH", { password: pass });
+    showToast(`Password updated for ${userName}`, "success");
+    inp.value = "";
+    setStatus("Password updated.", "ok");
+  } catch (err) {
+    showToast("Update failed: " + err.message, "error");
+    setStatus(err.message, "err");
   }
 }
 </script>
