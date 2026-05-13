@@ -617,6 +617,16 @@
             <div class="kpi-value" id="statPendingPayouts">—</div>
             <div class="kpi-sub">farmers awaiting</div>
           </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Interested (Yes)</div>
+            <div class="kpi-value" id="statInterestYes" style="color: #10b981;">—</div>
+            <div class="kpi-sub">user responses</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Interested (No)</div>
+            <div class="kpi-value" id="statInterestNo" style="color: #ef4444;">—</div>
+            <div class="kpi-sub">user responses</div>
+          </div>
         </div>
 
         <!-- Quick summary cards -->
@@ -967,12 +977,13 @@ async function loadAll() {
   setStatus("Fetching data…", "loading");
   qs("topbarSub").textContent = "Loading…";
   try {
-    const [pRes, oRes, payRes, setRes, uRes] = await Promise.all([
+    const [pRes, oRes, payRes, setRes, uRes, iRes] = await Promise.all([
       api("/orders/admin/product-demand"),
       api("/orders/admin/all"),
       api("/payouts/admin"),
       api("/settings"),
-      api("/users")
+      api("/users"),
+      api("/interest/counts")
     ]);
     const products      = unwrap(pRes);
     const allOrders     = unwrap(oRes);
@@ -980,6 +991,7 @@ async function loadAll() {
     const payouts       = unwrap(payRes);
     const settings      = unwrap(setRes);
     const users         = unwrap(uRes);
+    const interest      = unwrap(iRes);
     const orderedMap    = buildOrderedMap(allOrders);
 
     const latestPayoutByKey = {};
@@ -992,7 +1004,7 @@ async function loadAll() {
     });
 
     // Render all pages
-    renderKPIs(products, pendingOrders, payouts);
+    renderKPIs(products, pendingOrders, payouts, interest);
     renderOverviewOrders(pendingOrders.slice(0,5));
     renderOverviewPending(payouts);
     renderProducts(products, orderedMap);
@@ -1027,7 +1039,7 @@ function currentPage() {
 // ════════════════════════════════════════
 //  KPIs
 // ════════════════════════════════════════
-function renderKPIs(products, pendingOrders, payouts) {
+function renderKPIs(products, pendingOrders, payouts, interest) {
   const totalSupply  = (products||[]).reduce((s,p)=>s+Number(p.totalAvailableQuantityKg||0),0);
   const totalOrdered = pendingOrders.reduce((s,o)=>{
     return s + (o.items||[]).reduce((ss,i)=>ss+Number(i.quantity||0),0);
@@ -1041,6 +1053,8 @@ function renderKPIs(products, pendingOrders, payouts) {
   qs("statOrders").textContent        = pendingOrders.length;
   qs("statRevenue").textContent       = "₹" + totalRevenue.toFixed(0);
   qs("statPendingPayouts").textContent= pendingPayoutCount;
+  qs("statInterestYes").textContent   = interest?.yesCount || 0;
+  qs("statInterestNo").textContent    = interest?.noCount || 0;
 }
 
 // ════════════════════════════════════════
