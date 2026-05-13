@@ -1357,8 +1357,8 @@ function renderPayoutPlanner(rows, orderedMap, latestPayoutByKey) {
           return `
           <tr>
             <td>
-              <div class="farmer-pill">👤 ${r.name}</div>
-              <div class="muted-val">${r.phone}</div>
+              <div class="farmer-pill">👤 ${r.farmerName}</div>
+              <div class="muted-val">${r.farmerPhone}</div>
             </td>
             <td><span class="product-name">${r.productName}</span></td>
             <td><span class="mono-val">${Number(r.totalOrdered||0).toFixed(2)}</span></td>
