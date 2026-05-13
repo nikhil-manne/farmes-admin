@@ -1149,15 +1149,16 @@ function renderProducts(rows, orderedMap) {
             <td><span class="green-val">₹ ${Number(r.currentPricePerKg||0).toFixed(2)}</span></td>
             <td>
               <div class="pack-sizes-grid" style="display:flex; flex-direction:column; gap:4px;">
-                ${[0.25, 0.5, 1, 2, 5].map(sz => {
+                ${[0.1, 0.25, 0.5, 1, 2, 5].map(sz => {
                   const checked = (r.allowedPackSizes || [1.0]).map(Number).includes(sz);
                   const label = sz < 1 ? (sz * 1000) + 'g' : sz + 'kg';
+                  const manualPrice = r.quantityPrices?.[String(sz)];
                   return `
                   <label style="display:flex; align-items:center; gap:6px; font-size:11px; cursor:pointer;">
                     <input type="checkbox" 
                            ${checked ? 'checked' : ''} 
                            onchange="savePackSizes('${r.productId}', ${sz}, this.checked, '${(r.productName||r.productId).replace(/'/g,"\\'")}')" />
-                    ${label}
+                    ${label} ${manualPrice ? `<span style="color:var(--amber);font-weight:700">(₹${manualPrice})</span>` : ''}
                   </label>`;
                 }).join("")}
               </div>
@@ -1188,6 +1189,10 @@ function renderProducts(rows, orderedMap) {
                 </div>
                 <div class="price-err" id="priceErr_${r.productId}">Enter a valid price ≥ 0</div>
                 <div class="price-ok"  id="priceOk_${r.productId}">✔ Saved</div>
+                <button class="btn btn-ghost btn-xs" style="margin-top:8px"
+                  onclick="openManualPrices('${r.productId}','${(r.productName||r.productId).replace(/'/g,"\\'")}')">
+                  ⚙ Manual Prices
+                </button>
               </div>
             </td>
           </tr>`;
@@ -1611,6 +1616,37 @@ async function savePackSizes(pid, size, checked, pname) {
   } catch (err) {
     setStatus(err.message || "Failed to update pack sizes.", "err");
     showToast("Update failed: " + err.message, "error");
+  }
+}
+
+async function openManualPrices(pid, pname) {
+  try {
+    const pRes = await api(`/products/${pid}`);
+    const product = unwrap(pRes);
+    const currentPrices = product.quantityPrices || {};
+    const sizes = (product.allowedPackSizes || [1.0]).map(Number);
+    
+    sizes.forEach(sz => {
+      const label = sz < 1 ? (sz * 1000) + 'g' : sz + 'kg';
+      const current = currentPrices[String(sz)] || "";
+      const val = prompt(`Set manual price for ${pname} (${label}):\n(Leave empty to use auto-calculation)`, current);
+      if (val !== null) {
+        if (val === "") {
+          delete currentPrices[String(sz)];
+        } else {
+          const num = parseFloat(val);
+          if (!isNaN(num) && num >= 0) {
+            currentPrices[String(sz)] = num;
+          }
+        }
+      }
+    });
+
+    await api(`/products/${pid}/quantity-prices`, "PATCH", { quantityPrices: currentPrices });
+    showToast(`Manual prices for ${pname} updated`, "success");
+    loadAll();
+  } catch (err) {
+    showToast("Failed to update manual prices: " + err.message, "error");
   }
 }
 </script>
