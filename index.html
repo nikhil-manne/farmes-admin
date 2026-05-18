@@ -1130,6 +1130,7 @@ function renderProducts(rows, orderedMap) {
           <th>Current Price / kg</th>
           <th>Pack Sizes</th>
           <th>Farmer Contributions</th>
+          <th>Visibility</th>
           <th>Update Price</th>
         </tr>
       </thead>
@@ -1141,7 +1142,10 @@ function renderProducts(rows, orderedMap) {
           const barColor= pct>90?"#ef4444":pct>60?"#f59e0b":"#22c55e";
           return `
           <tr>
-            <td><span class="product-name">${r.productName||"—"}</span></td>
+            <td>
+              <span class="product-name">${r.productName||"—"}</span>
+              ${r.isActive ? '' : '<div style="font-size:10px; color:var(--red); font-weight:700; margin-top:4px;">HIDDEN</div>'}
+            </td>
             <td><span class="green-val">${avail.toFixed(2)}</span></td>
             <td><span class="green-val">${ordered.toFixed(2)}</span></td>
             <td>
@@ -1187,6 +1191,16 @@ function renderProducts(rows, orderedMap) {
                     Land: ${Number(f.landAssignedAcres||0).toFixed(2)} ac
                   </div>
                 </div>`).join("")}
+            </td>
+            <td>
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
+                <input type="checkbox" id="vis_${r.productId}"
+                       ${r.isActive ? 'checked' : ''} 
+                       onchange="toggleVisibility('${r.productId}', this.checked, '${(r.productName||r.productId).replace(/'/g,"\\'")}')" />
+                <span style="${r.isActive ? 'color:var(--green);font-weight:600;' : 'color:var(--red);font-weight:600;'}">
+                  ${r.isActive ? 'Visible' : 'Hidden'}
+                </span>
+              </label>
             </td>
             <td>
               <div class="price-row" id="priceRow_${r.productId}">
@@ -1255,6 +1269,20 @@ async function setPrice(pid, pname) {
     setStatus(err.message||"Failed.","err");
     showToast("Price update failed: "+err.message,"error",5000);
   } finally { btn.disabled=false; btn.textContent="Save"; }
+}
+
+async function toggleVisibility(pid, isActive, pname) {
+  setStatus((isActive ? "Showing" : "Hiding") + " product...", "loading");
+  try {
+    await api(`/products/${pid}/visibility`, "PATCH", { isActive });
+    setStatus("Visibility updated", "ok");
+    showToast(`<strong>${pname}</strong> is now ${isActive ? 'Visible' : 'Hidden'}`, "success");
+    loadAll();
+  } catch (err) {
+    qs(`vis_${pid}`).checked = !isActive; // revert
+    setStatus("Update failed", "err");
+    showToast("Failed to update visibility: " + err.message, "error", 5000);
+  }
 }
 
 // ════════════════════════════════════════
