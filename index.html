@@ -894,6 +894,11 @@
           <span class="nav-badge alert" id="navPendingBadge">0</span>
         </div>
 
+        <div class="nav-section-label">Media & Content</div>
+        <div class="nav-item" data-page="gallery" onclick="navigate('gallery')">
+          <span class="nav-icon">🎥</span> Our Gallery
+        </div>
+
         <div class="nav-section-label">Security Settings</div>
         <div class="nav-item" data-page="users" onclick="navigate('users')">
           <span class="nav-icon">👥</span> User Management
@@ -1232,6 +1237,29 @@
         </div>
 
         <!-- ════════════════════════════════════════
+             PAGE: GALLERY MANAGEMENT
+             ════════════════════════════════════════ -->
+        <div class="page" id="page-gallery">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-header-icon">🎥</span>
+              <h2>Manage Gallery Videos</h2>
+              <div class="card-header-right">
+                <button class="btn btn-primary btn-sm" onclick="openAddVideoModal()">Add New Video</button>
+              </div>
+            </div>
+            <div class="card-sub">
+              <span>Upload or link video clips to show in the customer-facing gallery.</span>
+            </div>
+
+            <!-- Gallery videos dynamic list -->
+            <div class="table-wrap">
+              <div id="galleryTable"><div class="empty">Loading gallery items...</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════
              PAGE: PLATFORM CONFIGURATIONS
              ════════════════════════════════════════ -->
         <div class="page" id="page-settings">
@@ -1308,6 +1336,7 @@
       interest: null,
       orderedMap: {},
       latestPayoutByKey: {},
+      gallery: [],
       
       activePage: "overview",
       
@@ -1335,6 +1364,7 @@
       orders:         { title: "Customer Orders",       sub: "Monitor all checkout transactions and dispatch states." },
       payoutPlanner:  { title: "Payout Planner",        sub: "Verify crop deliveries and configure payouts per farmer." },
       pendingPayouts: { title: "Pending Ledger",        sub: "Settle accounts with outstanding farmers waiting for clearance." },
+      gallery:        { title: "Gallery Management",    sub: "Upload and organize video content for the home page." },
       users:          { title: "User Credentials",      sub: "Security clearance catalog and override configurations." },
       settings:       { title: "Platform Constants",   sub: "System parameters, packaging, taxes, and timetables." },
     };
@@ -1402,6 +1432,7 @@
       if (qs("payoutPlannerTable")) qs("payoutPlannerTable").innerHTML = wideSk;
       if (qs("pendingPayoutsTable")) qs("pendingPayoutsTable").innerHTML = standardSk;
       if (qs("usersTable")) qs("usersTable").innerHTML = standardSk;
+      if (qs("galleryTable")) qs("galleryTable").innerHTML = standardSk;
     }
 
     // ════════════════════════════════════════
@@ -1602,13 +1633,14 @@
     async function loadAll() {
       showLoadingState();
       try {
-        const [pRes, oRes, payRes, setRes, uRes, iRes] = await Promise.all([
+        const [pRes, oRes, payRes, setRes, uRes, iRes, gRes] = await Promise.all([
           api("/orders/admin/product-demand"),
           api("/orders/admin/all"),
           api("/payouts/admin"),
           api("/settings"),
           api("/users"),
-          api("/interest/counts")
+          api("/interest/counts"),
+          api("/gallery")
         ]);
         
         STATE.products      = unwrap(pRes) || [];
@@ -1617,6 +1649,7 @@
         STATE.settings      = unwrap(setRes);
         STATE.users         = unwrap(uRes) || [];
         STATE.interest      = unwrap(iRes) || { yesCount: 0, noCount: 0 };
+        STATE.gallery       = unwrap(gRes) || [];
         STATE.orderedMap    = buildOrderedMap(STATE.allOrders);
 
         // Organize outstanding payouts by farmer crop ledger keys
@@ -1665,6 +1698,7 @@
       applyPlannerRender();
       applyPendingPayoutsRender();
       applyUsersRender();
+      applyGalleryRender();
       
       // Settings Form
       renderSettings(STATE.settings);
@@ -2776,6 +2810,265 @@
       } catch (err) {
         showToast("Database overrides update failed: " + err.message, "error");
         setStatus("Overrides failed", "err");
+      }
+    }
+
+    // ════════════════════════════════════════
+    //  SPA LIST: GALLERY VIDEOS
+    // ════════════════════════════════════════
+    function applyGalleryRender() {
+      renderGallery(STATE.gallery || []);
+    }
+
+    function renderGallery(galleryList) {
+      if (!galleryList.length) {
+        qs("galleryTable").innerHTML = `<div class="empty"><span class="empty-icon">🎥</span>No gallery videos found. Add one to get started!</div>`;
+        return;
+      }
+
+      qs("galleryTable").innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>Video Title</th>
+              <th>Source / Key</th>
+              <th>Uploaded Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${galleryList.map(item => `
+              <tr>
+                <td data-label="Preview">
+                  <video src="${item.url}" width="120" height="70" controls style="border-radius: var(--r-md); object-fit: cover; background: #000; border: 1px solid var(--border);"></video>
+                </td>
+                <td data-label="Video Title"><strong class="product-name">${item.title}</strong></td>
+                <td data-label="Source / Key">
+                  <div class="muted-val" style="word-break: break-all; max-width: 250px;">
+                    ${item.key ? `🔑 S3: ${item.key}` : `🔗 URL: ${item.url}`}
+                  </div>
+                </td>
+                <td data-label="Uploaded Date"><div class="muted-val">${new Date(item.createdAt).toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'})}</div></td>
+                <td data-label="Actions">
+                  <button class="btn btn-ghost btn-sm" style="color: var(--red);" onclick="confirmDeleteVideo('${item.id}', '${item.title.replace(/'/g, "\\'")}')">
+                    Delete Video
+                  </button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function confirmDeleteVideo(id, title) {
+      const body = `
+        <div style="display:flex; flex-direction:column; gap:12px; text-align:center; padding: 12px 0;">
+          <div style="font-size:36px; color:var(--red)">⚠️</div>
+          <p style="font-size:14px; font-weight:600; color:var(--text);">Delete Gallery Video?</p>
+          <p style="font-size:12px; color:var(--text-muted); line-height: 1.5;">
+            You are deleting <strong>${title}</strong>. This video will be removed from the homepage gallery immediately.
+          </p>
+        </div>
+      `;
+      
+      const footer = `
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" style="background:var(--red);" onclick="submitDeleteVideo('${id}')">Delete Video</button>
+      `;
+      
+      showCustomModal("Delete Video Confirmation", body, footer);
+    }
+
+    async function submitDeleteVideo(id) {
+      closeModal();
+      setStatus("Removing video...", "loading");
+      try {
+        await api(`/gallery/${id}`, "DELETE");
+        showToast("Video successfully removed from gallery.", "success");
+        loadAll();
+      } catch (err) {
+        showToast("Failed to delete video: " + err.message, "error");
+        setStatus("Delete failed", "err");
+      }
+    }
+
+    function openAddVideoModal() {
+      const body = `
+        <div style="display:flex; flex-direction:column; gap:16px; padding: 6px 0;">
+          <div class="field" style="margin: 0;">
+            <label>Video Title</label>
+            <input type="text" id="g_video_title" placeholder="e.g. Our Fresh Farm Harvesting" style="padding: 10px 14px;" />
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 13px; font-weight: 600; color: var(--text);">Video Source Option</label>
+            <div style="display: flex; gap: 16px;">
+              <label style="font-size: 12px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <input type="radio" name="video_source" value="upload" checked onchange="toggleVideoSourceInput()" />
+                Upload File (to S3)
+              </label>
+              <label style="font-size: 12px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <input type="radio" name="video_source" value="url" onchange="toggleVideoSourceInput()" />
+                Direct Video URL
+              </label>
+            </div>
+          </div>
+
+          <div id="g_upload_container" class="field" style="margin: 0;">
+            <label>Choose Video File</label>
+            <input type="file" id="g_video_file" accept="video/*" style="padding: 8px;" />
+            <div class="field-hint">Select a short MP4 or webm video clip.</div>
+          </div>
+
+          <div id="g_url_container" class="field" style="margin: 0; display: none;">
+            <label>Direct Video URL</label>
+            <input type="url" id="g_video_url" placeholder="https://example.com/video.mp4" style="padding: 10px 14px;" />
+            <div class="field-hint">Provide a direct MP4, WebM link.</div>
+          </div>
+
+          <div id="g_progress_wrapper" style="display: none; flex-direction: column; gap: 6px; margin-top: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--green);">
+              <span id="g_progress_status">Uploading file...</span>
+              <span id="g_progress_pct">0%</span>
+            </div>
+            <div style="height: 6px; background: var(--green-lite); border-radius: 3px; overflow: hidden;">
+              <div id="g_progress_bar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.1s;"></div>
+            </div>
+          </div>
+
+          <div id="g_modal_err" class="price-err" style="margin-top: 4px;"></div>
+        </div>
+      `;
+
+      const footer = `
+        <button class="btn btn-ghost" id="g_btn_cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="g_btn_submit" onclick="submitAddVideo()">Add Video</button>
+      `;
+
+      showCustomModal("Add Gallery Video", body, footer);
+    }
+
+    function toggleVideoSourceInput() {
+      const source = document.querySelector('input[name="video_source"]:checked').value;
+      if (source === "upload") {
+        qs("g_upload_container").style.display = "block";
+        qs("g_url_container").style.display = "none";
+      } else {
+        qs("g_upload_container").style.display = "none";
+        qs("g_url_container").style.display = "block";
+      }
+    }
+
+    async function submitAddVideo() {
+      const title = qs("g_video_title").value.trim();
+      const errEl = qs("g_modal_err");
+      errEl.classList.remove("show");
+      errEl.textContent = "";
+
+      if (!title) {
+        errEl.textContent = "Please provide a video title.";
+        errEl.classList.add("show");
+        return;
+      }
+
+      const source = document.querySelector('input[name="video_source"]:checked').value;
+      const btnSubmit = qs("g_btn_submit");
+      const btnCancel = qs("g_btn_cancel");
+
+      if (source === "url") {
+        const url = qs("g_video_url").value.trim();
+        if (!url) {
+          errEl.textContent = "Please enter a valid video URL.";
+          errEl.classList.add("show");
+          return;
+        }
+
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "Saving...";
+        try {
+          await api("/gallery", "POST", { title, url });
+          showToast("Video added to gallery successfully.", "success");
+          closeModal();
+          loadAll();
+        } catch (err) {
+          errEl.textContent = "Failed to save: " + err.message;
+          errEl.classList.add("show");
+        } finally {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = "Add Video";
+        }
+      } else {
+        const fileInput = qs("g_video_file");
+        const file = fileInput.files[0];
+        if (!file) {
+          errEl.textContent = "Please select a video file to upload.";
+          errEl.classList.add("show");
+          return;
+        }
+
+        btnSubmit.disabled = true;
+        btnCancel.disabled = true;
+        btnSubmit.textContent = "Preparing upload...";
+        qs("g_progress_wrapper").style.display = "flex";
+
+        try {
+          // 1. Get presigned upload URL
+          qs("g_progress_status").textContent = "Requesting upload slot...";
+          const { uploadUrl, key } = await api("/storage/generate-upload-url", "POST", {
+            filename: file.name,
+            contentType: file.type || "video/mp4"
+          });
+
+          // 2. Perform direct PUT upload to S3 using XHR (for progress tracking)
+          qs("g_progress_status").textContent = "Uploading file to storage...";
+          await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", uploadUrl, true);
+            xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                qs("g_progress_bar").style.width = pct + "%";
+                qs("g_progress_pct").textContent = pct + "%";
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status === 200) {
+                resolve();
+              } else {
+                reject(new Error("Storage upload failed with status " + xhr.status));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error("Network error during storage upload."));
+            xhr.send(file);
+          });
+
+          // 3. Verify upload with backend
+          qs("g_progress_status").textContent = "Verifying upload integrity...";
+          await api("/storage/verify-upload", "POST", { key });
+
+          // 4. Create gallery video record
+          qs("g_progress_status").textContent = "Finishing gallery registration...";
+          const constructedUrl = `https://s3.amazonaws.com/constructed-placeholder-url-fallback`; // backend resolveUrl handles key signed url, so url is a fallback
+          await api("/gallery", "POST", { title, url: constructedUrl, key });
+
+          showToast("Video uploaded and added to gallery successfully.", "success");
+          closeModal();
+          loadAll();
+        } catch (err) {
+          errEl.textContent = "Upload failed: " + err.message;
+          errEl.classList.add("show");
+          qs("g_progress_wrapper").style.display = "none";
+        } finally {
+          btnSubmit.disabled = false;
+          btnCancel.disabled = false;
+          btnSubmit.textContent = "Add Video";
+        }
       }
     }
   </script>
